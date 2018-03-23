@@ -131,7 +131,8 @@ class DL1Writer:
                 'baseline_end_rms',
                 'baseline_subtracted',
                 'waveform_mean',
-                'waveform_rms'
+                'waveform_rms',
+                'saturation_coeff'
             ]
             for column in default_c:
                 if column not in df:
