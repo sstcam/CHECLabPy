@@ -1,5 +1,5 @@
 import pytest
-from CHECLabPy.core.file_handling import ReaderR0, ReaderR1
+from CHECLabPy.core.io import ReaderR0, ReaderR1
 from CHECLabPy.data import get_file
 
 

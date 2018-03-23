@@ -1,0 +1,55 @@
+notifications:
+  email:
+    on_success: never # default: change
+    on_failure: always # default: always
+
+language: python
+sudo: required
+
+python:
+    # not used directly, but this sets TRAVIS_PYTHON_VERSION so we can use it
+    # in anaconda as well (we don't support python less than 3.5)
+    - 3.5
+    - 3.6
+
+os:
+    - linux
+    # - osx   # currently osx python projects are not supported in Travis
+
+env:
+  global:
+    - TARGET_SOFTWARE=$HOME/Software/target_software
+    - LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/Software/TargetDriver/install/lib:$HOME/Software/TargetIO/install/lib:$HOME/Software/TargetCalib/install/lib
+    - MINICONDA_URL=https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    - TARGETCALIBPATH=$HOME/Software/TargetCalib/install
+
+before_install:
+- wget $MINICONDA_URL -O miniconda.sh
+- bash miniconda.sh -b -p $HOME/miniconda
+- export PATH="$HOME/miniconda/bin:$PATH"
+- hash -r
+- conda config --set always_yes yes --set changeps1 no
+- conda update -q conda
+- conda info -a
+
+- conda create --name cta-dev python=$TRAVIS_PYTHON_VERSION pip numpy
+- source activate cta-dev
+- pip install pytest
+
+# ----- target_software
+- conda install -c conda-forge cfitsio
+- conda install swig
+- mkdir -p $HOME/Software
+- cd $HOME/Software
+- git clone https://github.com/watsonjj/target_software.git
+- cd $TARGET_SOFTWARE
+- ./install.sh
+- cd $TRAVIS_BUILD_DIR
+# ----- end of target_software
+
+install:
+- python setup.py develop
+
+script:
+- cd $TRAVIS_BUILD_DIR
+- pytest -vvs

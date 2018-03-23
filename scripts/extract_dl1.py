@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import json
-from CHECLabPy.core.file_handling import ReaderR1, DL1Writer
+from CHECLabPy.core.io import ReaderR1, DL1Writer
 from CHECLabPy.core.factory import WaveformReducerFactory
 from CHECLabPy.utils.waveform import BaselineSubtractor
 

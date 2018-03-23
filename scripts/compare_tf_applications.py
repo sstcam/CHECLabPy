@@ -1,5 +1,5 @@
 from matplotlib import pyplot as plt
-from CHECLabPy.core.file_handling import DL1Reader
+from CHECLabPy.core.io import DL1Reader
 
 
 def main():

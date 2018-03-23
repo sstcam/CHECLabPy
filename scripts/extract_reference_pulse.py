@@ -8,7 +8,7 @@ pixels.
 import argparse
 from argparse import ArgumentDefaultsHelpFormatter as Formatter
 import numpy as np
-from CHECLabPy.core.file_handling import ReaderR1
+from CHECLabPy.core.io import ReaderR1
 from CHECLabPy.plotting.waveform import WaveformPlotter
 from CHECLabPy.utils.waveform import get_average_wf
 

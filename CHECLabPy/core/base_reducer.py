@@ -45,6 +45,7 @@ class WaveformReducer:
         params.update(self._get_charge(waveforms))
         params.update(self._get_baseline(waveforms))
         params.update(self._get_timing(waveforms))
+        params.update(self._get_saturation(waveforms))
 
         return params
 
@@ -87,6 +88,14 @@ class WaveformReducer:
             baseline_end_rms=baseline_end_rms,
             waveform_mean=waveform_mean,
             waveform_rms=waveform_rms
+        )
+        return params
+
+    def _get_saturation(self, waveforms):
+        saturation_coeff = np.sum(waveforms[:, self.window_start:], axis=1)
+
+        params = dict(
+            saturation_param=saturation_coeff
         )
         return params
 
