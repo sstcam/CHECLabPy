@@ -34,7 +34,7 @@ account
 3. `cd CHECLabPy`
 4. `git remote add upstream https://github.com/cta-chec/CHECLabPy.git`
 * To Update: `git fetch upstream && git checkout master && 
-git merge upstream/master && git push origin master'`
+git merge upstream/master && git push origin master`
 
 ### Installing
 To install, run `python setup.py develop`
