@@ -48,7 +48,7 @@ before_install:
 # ----- end of target_software
 
 install:
-- pip install .
+- python setup.py develop
 
 script:
 - cd $TRAVIS_BUILD_DIR
