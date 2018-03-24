@@ -8,7 +8,7 @@ from target_calib import CameraConfiguration
 from CHECLabPy.utils.files import create_directory
 
 
-class Reader:
+class TIOReader:
     """
     Reader for the R0 and R1 tio files
     """
@@ -28,6 +28,7 @@ class Reader:
         self.n_samples = self.reader.fNSamples
         self.camera_config = CameraConfiguration(self.reader.fCameraVersion)
         self.n_cells = self.camera_config.GetNCells()
+        self.mapping = self.camera_config.GetMapping(self.n_modules == 1)
 
         self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
 
@@ -55,7 +56,7 @@ class Reader:
         return np.copy(self.samples)
 
 
-class ReaderR1(Reader):
+class ReaderR1(TIOReader):
     """
     Reader for the R1 tio files
     """
@@ -65,7 +66,7 @@ class ReaderR1(Reader):
             raise IOError("This script is only setup to read *_r1.tio files!")
 
 
-class ReaderR0(Reader):
+class ReaderR0(TIOReader):
     """
     Reader for the R0 tio files
     """
@@ -382,12 +383,16 @@ class HDFStoreReader(ABC):
         return self.metadata['n_pixels']
 
     @property
+    def n_modules(self):
+        return self.metadata['n_modules']
+
+    @property
     def camera_config(self):
         return CameraConfiguration(self.metadata['camera_version'])
 
     @property
     def mapping(self):
-        return self.camera_config.GetMapping(self.n_pixels == 64)
+        return self.camera_config.GetMapping(self.n_modules == 1)
 
     def load_entire_table(self, force=False):
         """
