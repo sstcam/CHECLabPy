@@ -23,6 +23,8 @@ class Reader:
     Reader for the R0 and R1 tio files
     """
     def __init__(self, path, max_events=None):
+        if not exists(path):
+            raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
 
         self.reader = TIOReader(self.path, N_CELLS,
@@ -525,6 +527,8 @@ class DL1Reader(HDFStoreReader):
     def __init__(self, path):
         super().__init__()
         print("Opening HDF5 file: {}".format(path))
+        if not exists(path):
+            raise FileNotFoundError("File does not exist: {}".format(path))
         self.store = pd.HDFStore(
             path, mode='r', complevel=9, complib='blosc:blosclz'
         )
