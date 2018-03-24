@@ -129,7 +129,7 @@ The following metadata is also included inside the file:
     n_cells
     start_time      CPU time of the first event
     end_time        CPU time of the last event 
-    version         Camera version (used for obtaining the correct mapping)
+    camera_version  Camera version (used for obtaining the correct mapping)
     reducer         Name of the WaveformReducer used
     configuration   Additional configuration that was passed from the cmdline
 ```
