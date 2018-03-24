@@ -124,6 +124,7 @@ The following metadata is also included inside the file:
 ```
     input_path
     n_events
+    n_modules
     n_pixels
     n_samples
     n_cells

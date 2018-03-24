@@ -47,6 +47,7 @@ def main():
 
     source = ReaderR1(args.input_path, args.max_events)
     n_events = source.n_events
+    n_modules = source.n_modules
     n_pixels = source.n_pixels
     n_samples = source.n_samples
     n_cells = source.n_cells
@@ -104,6 +105,7 @@ def main():
         metadata = dict(
             input_path=input_path,
             n_events=n_events,
+            n_modules=n_modules,
             n_pixels=n_pixels,
             n_samples=n_samples,
             n_cells=n_cells,
