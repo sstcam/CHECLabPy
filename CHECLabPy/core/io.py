@@ -3,19 +3,9 @@ import pandas as pd
 from os.path import dirname, exists
 from os import remove
 from abc import ABC, abstractmethod
-from target_io import TargetIOEventReader as TIOReader
-from target_io import T_SAMPLES_PER_WAVEFORM_BLOCK as N_BLOCKSAMPLES
+from target_io import WaveformArrayReader
+from target_calib import CameraConfiguration
 from CHECLabPy.utils.files import create_directory
-
-# CHEC-S
-N_ROWS = 8
-N_COLUMNS = 16
-N_BLOCKS = N_ROWS * N_COLUMNS
-N_CELLS = N_ROWS * N_COLUMNS * N_BLOCKSAMPLES
-SKIP_SAMPLE = 0
-SKIP_END_SAMPLE = 0
-SKIP_EVENT = 2
-SKIP_END_EVENT = 1
 
 
 class Reader:
@@ -27,9 +17,7 @@ class Reader:
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
 
-        self.reader = TIOReader(self.path, N_CELLS,
-                                SKIP_SAMPLE, SKIP_END_SAMPLE,
-                                SKIP_EVENT, SKIP_END_EVENT)
+        self.reader = WaveformArrayReader(self.path, 2, 1)
 
         self.is_r1 = self.reader.fR1
         self.n_events = self.reader.fNEvents
@@ -38,7 +26,8 @@ class Reader:
         self.n_modules = self.reader.fNModules
         self.n_tmpix = self.n_pixels // self.n_modules
         self.n_samples = self.reader.fNSamples
-        self.n_cells = self.reader.fNCells
+        self.camera_config = CameraConfiguration(self.reader.fCameraVersion)
+        self.n_cells = self.camera_config.GetNCells()
 
         self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
 
@@ -387,6 +376,18 @@ class HDFStoreReader(ABC):
     @property
     def n_bytes(self):
         return self.metadata['n_bytes']
+
+    @property
+    def n_pixels(self):
+        return self.metadata['n_pixels']
+
+    @property
+    def camera_config(self):
+        return CameraConfiguration(self.metadata['camera_version'])
+
+    @property
+    def mapping(self):
+        return self.camera_config.GetMapping(self.n_pixels == 64)
 
     def load_entire_table(self, force=False):
         """

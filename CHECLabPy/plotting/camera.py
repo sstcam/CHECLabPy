@@ -2,14 +2,22 @@
 Plot camera image using just TargetCalib and python
 """
 import numpy as np
-from target_calib import MappingCHEC
 from CHECLabPy.plotting.setup import Plotter
 
 
 class CameraPlotter(Plotter):
-    def __init__(self, version):
+    def __init__(self, mapping):
+        """
+        Plot values in a camera image
+
+        Parameters
+        ----------
+        mapping : `target_calib.Mapping`
+            The mapping for the pixels. Obtainable from
+            `target_calib.CameraConfiguration`.
+        """
         super().__init__()
-        self.mapping = MappingCHEC()  # TODO update when version implemented
+        self.mapping = mapping
 
         self.row = np.array(self.mapping.GetRowVector())
         self.col = np.array(self.mapping.GetColumnVector())

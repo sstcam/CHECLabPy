@@ -109,7 +109,7 @@ def main():
             n_cells=n_cells,
             start_time=start_time,
             end_time=t_cpu,
-            version="0.0.0",
+            camera_version=source.camera_config.GetVersion(),
             reducer=reducer.__class__.__name__,
             configuration=config_string
         )
