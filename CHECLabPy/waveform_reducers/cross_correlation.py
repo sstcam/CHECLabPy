@@ -43,8 +43,8 @@ class CrossCorrelation(WaveformReducer):
         self.reference_pulse = y
         self.cc = None
 
-    def get_pulse_height(self, factor):
-        return (self.y_1pe * factor).max()
+    def get_pulse_height(self, charge):
+        return charge * self.y_1pe.max()
 
     def _apply_cc(self, waveforms):
         cc = correlate1d(waveforms, self.reference_pulse)
@@ -56,8 +56,10 @@ class CrossCorrelation(WaveformReducer):
 
     def _get_charge(self, waveforms):
         charge = self.cc[:, self.t_event]
+        cc_height = self.get_pulse_height(charge)
 
         params = dict(
             charge=charge,
+            cc_height=cc_height,
         )
         return params
