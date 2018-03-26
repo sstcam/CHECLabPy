@@ -25,43 +25,54 @@ class TIOReader:
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
 
-        self.reader = WaveformArrayReader(self.path, 2, 1)
+        self._reader = WaveformArrayReader(self.path, 2, 1)
 
-        self.is_r1 = self.reader.fR1
-        self.n_events = self.reader.fNEvents
-        self.run_id = self.reader.fRunID
-        self.n_pixels = self.reader.fNPixels
-        self.n_modules = self.reader.fNModules
+        self.is_r1 = self._reader.fR1
+        self.n_events = self._reader.fNEvents
+        self.run_id = self._reader.fRunID
+        self.n_pixels = self._reader.fNPixels
+        self.n_modules = self._reader.fNModules
         self.n_tmpix = self.n_pixels // self.n_modules
-        self.n_samples = self.reader.fNSamples
-        self.camera_config = CameraConfiguration(self.reader.fCameraVersion)
-        self.n_cells = self.camera_config.GetNCells()
-        self._mapping = self.camera_config.GetMapping(self.n_modules == 1)
+        self.n_samples = self._reader.fNSamples
+
+        self._camera_config = CameraConfiguration(self._reader.fCameraVersion)
+        self._mapping = self._camera_config.GetMapping(self.n_modules == 1)
+
+        self.n_cells = self._camera_config.GetNCells()
+        self.camera_version = self._camera_config.GetVersion()
+
+        self.current_tack = None
+        self.current_cpu_ns = None
+        self.current_cpu_s = None
 
         self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
 
         if self.is_r1:
             self.samples = np.zeros((self.n_pixels, self.n_samples),
                                     dtype=np.float32)
-            self.get_tio_event = self.reader.GetR1Event
+            self.get_tio_event = self._reader.GetR1Event
         else:
             self.samples = np.zeros((self.n_pixels, self.n_samples),
                                     dtype=np.uint16)
-            self.get_tio_event = self.reader.GetR0Event
+            self.get_tio_event = self._reader.GetR0Event
 
         if max_events and max_events < self.n_events:
             self.n_events = max_events
 
-    def __iter__(self):
-        for iev in range(self.n_events):
-            self.index = iev
-            self.get_tio_event(iev, self.samples, self.first_cell_ids)
-            yield self.samples
-
-    def __getitem__(self, iev):
+    def _get_event(self, iev):
         self.index = iev
         self.get_tio_event(iev, self.samples, self.first_cell_ids)
-        return np.copy(self.samples)
+        self.current_tack = self._reader.fCurrentTimeTack
+        self.current_cpu_ns = self._reader.fCurrentTimeSec
+        self.current_cpu_s = self._reader.fCurrentTimeNs
+        return self.samples
+
+    def __iter__(self):
+        for iev in range(self.n_events):
+            yield self._get_event(iev)
+
+    def __getitem__(self, iev):
+        return np.copy(self._get_event(iev))
 
     @property
     def mapping(self):

@@ -45,15 +45,15 @@ def main():
         config = {}
         config_string = ""
 
-    source = ReaderR1(args.input_path, args.max_events)
-    n_events = source.n_events
-    n_modules = source.n_modules
-    n_pixels = source.n_pixels
-    n_samples = source.n_samples
-    n_cells = source.n_cells
+    reader = ReaderR1(args.input_path, args.max_events)
+    n_events = reader.n_events
+    n_modules = reader.n_modules
+    n_pixels = reader.n_pixels
+    n_samples = reader.n_samples
+    n_cells = reader.n_cells
     pixel_array = np.arange(n_pixels)
-    camera_version = source.camera_config.GetVersion()
-    mapping = source.mapping
+    camera_version = reader.camera_version
+    mapping = reader.mapping
 
     kwargs = dict(
         n_pixels=n_pixels,
@@ -62,9 +62,9 @@ def main():
         **config
     )
     reducer = WaveformReducerFactory.produce(args.reducer, **kwargs)
-    baseline_subtractor = BaselineSubtractor(source)
+    baseline_subtractor = BaselineSubtractor(reader)
 
-    input_path = source.path
+    input_path = reader.path
     output_path = args.output_path
     if not output_path:
         output_path = input_path.rsplit('_r1', 1)[0] + "_dl1.h5"
@@ -73,17 +73,17 @@ def main():
         t_cpu = 0
         start_time = 0
         desc = "Processing events"
-        for waveforms in tqdm(source, total=n_events, desc=desc):
-            iev = source.index
+        for waveforms in tqdm(reader, total=n_events, desc=desc):
+            iev = reader.index
 
-            t_tack = source.reader.fCurrentTimeTack
-            t_cpu_sec = source.reader.fCurrentTimeSec
-            t_cpu_ns = source.reader.fCurrentTimeNs
+            t_tack = reader.current_tack
+            t_cpu_sec = reader.current_cpu_s
+            t_cpu_ns = reader.current_cpu_ns
             t_cpu = pd.to_datetime(
                 np.int64(t_cpu_sec * 1E9) + np.int64(t_cpu_ns),
                 unit='ns'
             )
-            fci = source.first_cell_ids
+            fci = reader.first_cell_ids
 
             if not start_time:
                 start_time = t_cpu
