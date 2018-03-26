@@ -2,10 +2,12 @@
 Python scripts for reduction and analysis of CHEC lab data
 
 These set of python scripts provide a standard approach for reading,
-plotting and reducing the CHEC tio files for lab testing and comissioning. 
+plotting and reducing the CHEC tio files for lab testing and comissioning.
+ 
 Refer to https://forge.in2p3.fr/projects/gct/wiki/Installing_CHEC_Software for 
 intstructions for preparing your environment and installing the 
-TARGET libraries.
+TARGET libraries. It is not a requirement to install the TARGET libraries 
+to use this package (unless you wish to read R0/R1 tio files).
 
 To contribute a new charge-extraction/waveform-reducer method please read the
 waveform_reducers section.
