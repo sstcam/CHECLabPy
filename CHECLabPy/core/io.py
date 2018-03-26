@@ -69,6 +69,7 @@ class TIOReader:
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
             df.metadata = dict(
+                cfgfile=self._mapping.GetCfgPath(),
                 is_single_module=self._mapping.IsSingleModule(),
                 n_pixels=self._mapping.GetNPixels(),
                 n_modules=self._mapping.GetNModules(),
