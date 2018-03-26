@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
+import warnings
 from os.path import dirname, exists
 from os import remove
 from abc import ABC, abstractmethod
-from target_io import WaveformArrayReader
-from target_calib import CameraConfiguration
 from CHECLabPy.utils.files import create_directory
 
 
@@ -13,6 +12,15 @@ class TIOReader:
     Reader for the R0 and R1 tio files
     """
     def __init__(self, path, max_events=None):
+        try:
+            from target_io import WaveformArrayReader
+            from target_calib import CameraConfiguration
+        except ModuleNotFoundError:
+            msg = ("Cannot find TARGET libraries, please follow installation "
+                   "instructions from https://forge.in2p3.fr/projects/gct/"
+                   "wiki/Installing_CHEC_Software")
+            raise ModuleNotFoundError(msg)
+
         if not exists(path):
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
@@ -28,7 +36,7 @@ class TIOReader:
         self.n_samples = self.reader.fNSamples
         self.camera_config = CameraConfiguration(self.reader.fCameraVersion)
         self.n_cells = self.camera_config.GetNCells()
-        self.mapping = self.camera_config.GetMapping(self.n_modules == 1)
+        self._mapping = self.camera_config.GetMapping(self.n_modules == 1)
 
         self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
 
@@ -54,6 +62,29 @@ class TIOReader:
         self.index = iev
         self.get_tio_event(iev, self.samples, self.first_cell_ids)
         return np.copy(self.samples)
+
+    @property
+    def mapping(self):
+        df = self._mapping.as_dataframe()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            df.metadata = dict(
+                is_single_module=self._mapping.IsSingleModule(),
+                n_pixels=self._mapping.GetNPixels(),
+                n_modules=self._mapping.GetNModules(),
+                n_tmpix=self._mapping.GetNTMPix(),
+                n_rows=self._mapping.GetNRows(),
+                n_columns=self._mapping.GetNColumns(),
+                fOTUpRow_l=self._mapping.fOTUpRow_l,
+                fOTUpRow_u=self._mapping.fOTUpRow_u,
+                fOTUpCol_l=self._mapping.fOTUpCol_l,
+                fOTUpCol_u=self._mapping.fOTUpCol_u,
+                fOTUpX_l=self._mapping.fOTUpX_l,
+                fOTUpX_u=self._mapping.fOTUpX_u,
+                fOTUpY_l=self._mapping.fOTUpY_l,
+                fOTUpY_u=self._mapping.fOTUpY_u
+            )
+        return df
 
 
 class ReaderR1(TIOReader):
@@ -161,6 +192,10 @@ class DL1Writer:
     def _save_metadata(self):
         print("Saving data metadata to HDF5 file")
         self.store.get_storer('data').attrs.metadata = self.metadata
+
+    def add_mapping(self, mapping):
+        self.store['mapping'] = mapping
+        self.store.get_storer('mapping').attrs.metadata = mapping.metadata
 
     def finish(self):
         self._append_to_file()
@@ -387,12 +422,16 @@ class HDFStoreReader(ABC):
         return self.metadata['n_modules']
 
     @property
-    def camera_config(self):
-        return CameraConfiguration(self.metadata['camera_version'])
+    def version(self):
+        return self.metadata['camera_version']
 
     @property
     def mapping(self):
-        return self.camera_config.GetMapping(self.n_modules == 1)
+        df = self.store['mapping']
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            df.metadata = self.store.get_storer('mapping').attrs.metadata
+        return df
 
     def load_entire_table(self, force=False):
         """

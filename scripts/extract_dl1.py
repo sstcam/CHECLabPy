@@ -52,6 +52,8 @@ def main():
     n_samples = source.n_samples
     n_cells = source.n_cells
     pixel_array = np.arange(n_pixels)
+    camera_version = source.camera_config.GetVersion()
+    mapping = source.mapping
 
     kwargs = dict(
         n_pixels=n_pixels,
@@ -111,12 +113,13 @@ def main():
             n_cells=n_cells,
             start_time=start_time,
             end_time=t_cpu,
-            camera_version=source.camera_config.GetVersion(),
+            camera_version=camera_version,
             reducer=reducer.__class__.__name__,
             configuration=config_string
         )
 
         writer.add_metadata(**metadata)
+        writer.add_mapping(mapping)
 
 
 if __name__ == '__main__':
