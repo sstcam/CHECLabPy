@@ -98,6 +98,11 @@ class TIOReader:
             )
         return df
 
+    def get_sn(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetSN(tm)
+
 
 class ReaderR1(TIOReader):
     """
@@ -444,6 +449,11 @@ class HDFStoreReader(ABC):
             warnings.simplefilter('ignore', UserWarning)
             df.metadata = self.store.get_storer('mapping').attrs.metadata
         return df
+
+    def get_sn(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self.metadata["TM{}_SN".format(tm)]
 
     def load_entire_table(self, force=False):
         """
