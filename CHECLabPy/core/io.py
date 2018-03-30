@@ -441,16 +441,12 @@ class HDFStoreReader(ABC):
         return self.metadata['n_bytes']
 
     @property
-    def n_pixels(self):
-        return self.metadata['n_pixels']
+    def n_events(self):
+        return self.metadata['n_events']
 
     @property
     def n_modules(self):
         return self.metadata['n_modules']
-
-    @property
-    def version(self):
-        return self.metadata['camera_version']
 
     @property
     def mapping(self):
@@ -618,6 +614,18 @@ class DL1Reader(HDFStoreReader):
         stop = (iev + 1) * self.n_pixels
         df = self.select(start=start, stop=stop)
         return df
+
+    @property
+    def n_pixels(self):
+        return self.metadata['n_pixels']
+
+    @property
+    def n_samples(self):
+        return self.metadata['n_samples']
+
+    @property
+    def version(self):
+        return self.metadata['camera_version']
 
     @staticmethod
     def is_compatible(filepath):
