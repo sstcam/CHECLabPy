@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from astropy.io import fits
 import warnings
 from os.path import dirname, exists
 from os import remove
@@ -103,6 +104,15 @@ class TIOReader:
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self._reader.GetSN(tm)
 
+    @staticmethod
+    def is_compatible(filepath):
+        try:
+            h = fits.getheader(filepath, 0)
+            if 'EVENT_HEADER_VERSION' not in h:
+                return False
+        except IOError:
+            return False
+        return True
 
 class ReaderR1(TIOReader):
     """
@@ -164,7 +174,7 @@ class DL1Writer:
                 'amp_pulse',
                 'charge',
                 'fwhm',
-                'tr'
+                'tr',
                 'baseline_start_mean',
                 'baseline_start_rms',
                 'baseline_end_mean',
@@ -602,6 +612,23 @@ class DL1Reader(HDFStoreReader):
         self.key = 'data'
         if 'monitor' in self.store:
             self.monitor = MonitorReader(self.store)
+
+    def __getitem__(self, iev):
+        start = iev * self.n_pixels
+        stop = (iev + 1) * self.n_pixels
+        df = self.select(start=start, stop=stop)
+        return df
+
+    @staticmethod
+    def is_compatible(filepath):
+        try:
+            kwargs = dict(mode='r', complevel=9, complib='blosc:blosclz')
+            with pd.HDFStore(filepath, **kwargs) as store:
+                if 'data' not in store:
+                    return False
+        except IOError:
+            return False
+        return True
 
     def get_monitor_column(self, monitor_index, column):
         """
