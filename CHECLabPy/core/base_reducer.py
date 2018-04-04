@@ -95,7 +95,7 @@ class WaveformReducer:
         saturation_coeff = np.sum(waveforms[:, self.window_start:], axis=1)
 
         params = dict(
-            saturation_param=saturation_coeff
+            saturation_coeff=saturation_coeff
         )
         return params
 

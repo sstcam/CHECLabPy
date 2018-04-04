@@ -104,6 +104,10 @@ def main():
             ))
             writer.append_event(df_ev)
 
+        sn_dict = {}
+        for tm in range(n_modules):
+            sn_dict['TM{}_SN'.format(tm)] = reader.get_sn(tm)
+
         metadata = dict(
             input_path=input_path,
             n_events=n_events,
@@ -115,7 +119,8 @@ def main():
             end_time=t_cpu,
             camera_version=camera_version,
             reducer=reducer.__class__.__name__,
-            configuration=config_string
+            configuration=config_string,
+            **sn_dict
         )
 
         writer.add_metadata(**metadata)
