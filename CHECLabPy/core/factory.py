@@ -33,7 +33,14 @@ class Factory:
         ]
         children = [g for g in family if not isabstract(g)]
 
-        return children
+        unique = []
+        unique_names = []
+        for c in children:
+            if c.__name__ not in unique_names:
+                unique.append(c)
+                unique_names.append(c.__name__)
+
+        return unique
 
     @classmethod
     def produce(cls, product_name, **kwargs):
