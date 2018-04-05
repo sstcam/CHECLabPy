@@ -64,8 +64,8 @@ class TIOReader:
         self.index = iev
         self.get_tio_event(iev, self.samples, self.first_cell_ids)
         self.current_tack = self._reader.fCurrentTimeTack
-        self.current_cpu_ns = self._reader.fCurrentTimeSec
-        self.current_cpu_s = self._reader.fCurrentTimeNs
+        self.current_cpu_ns = self._reader.fCurrentTimeNs
+        self.current_cpu_s = self._reader.fCurrentTimeSec
         return self.samples
 
     def __iter__(self):

@@ -27,6 +27,19 @@ flow and how to use the CHECLabPy software.
 
 ### Downloading and updating
 
+#### Prerequisites
+It is recommended to use a conda environment running Python3.5 (or above).
+Instructions on how to setup such a conda environment can be found in
+https://forge.in2p3.fr/projects/gct/wiki/Installing_CHEC_Software. The
+required python packages for CHECLabPy (which can be installed using
+`conda install ...` or `pip install ...`) are:
+* astropy
+* scipy
+* numpy
+* matplotlib
+* tqdm
+* pandas
+
 #### Non-contributor
 If you wish to just use the software, and not contribute: 
 * To Download: `git clone https://github.com/cta-chec/CHECLabPy.git`
