@@ -606,14 +606,24 @@ class DL1Reader(HDFStoreReader):
             path, mode='r', complevel=9, complib='blosc:blosclz'
         )
         self.key = 'data'
-        if 'monitor' in self.store:
-            self.monitor = MonitorReader(self.store)
+        self._monitor = None
 
     def __getitem__(self, iev):
         start = iev * self.n_pixels
         stop = (iev + 1) * self.n_pixels
         df = self.select(start=start, stop=stop)
         return df
+
+    @property
+    def monitor(self):
+        if not self._monitor:
+            if 'monitor' in self.store:
+                self._monitor = MonitorReader(self.store)
+            else:
+                msg = ("Monitor information has not been "
+                       "stored inside this DL1 file")
+                raise AttributeError(msg)
+        return self._monitor
 
     @property
     def n_pixels(self):
