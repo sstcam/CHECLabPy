@@ -273,6 +273,7 @@ class MonitorWriter:
             module=np.arange(self.n_modules),
             **dict.fromkeys(self.supported, np.nan)
         ))
+        self.first = True
         self.eof = False
         self.aeof = False
         self.t_delta_max = pd.Timedelta(0)
@@ -281,7 +282,9 @@ class MonitorWriter:
         try:
             self.monitor_ev = next(self.monitor_it)
         except StopIteration:
-            raise IOError("No monitor events found")
+            print("WARNING: No monitor events found in file")
+            self.monitor_ev = self.empty_df.copy()
+            self.eof = True
         self.next_monitor_ev = self.monitor_ev.copy()
 
     def _get_next_monitor_event(self, monitor_path):
@@ -341,8 +344,13 @@ class MonitorWriter:
     def match_to_data_events(self, data_ev):
         t_cpu_data = data_ev.loc[0, 't_cpu']
         t_cpu_next_monitor = self.next_monitor_ev.loc[0, 't_cpu']
-        if self.t_delta_max < t_cpu_next_monitor - t_cpu_data:
-            self.t_delta_max = t_cpu_next_monitor - t_cpu_data
+        delta = t_cpu_next_monitor - t_cpu_data
+        if self.first and delta > pd.Timedelta(5, unit='m'):
+            print("WARNING: events are >5 minutes before start of monitor "
+                  "file, are you sure it is the correct monitor file?")
+            self.first = False
+        if self.t_delta_max < delta:
+            self.t_delta_max = delta
 
         # Get next monitor event until the times match
         while (t_cpu_data > t_cpu_next_monitor) and not self.eof:

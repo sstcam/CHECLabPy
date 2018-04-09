@@ -20,7 +20,7 @@ class CrossCorrelation(WaveformReducer):
         super().__init__(**kwargs)
         path = self.kwargs.get("reference_pulse_path",
                                get_file("checs_reference_pulse_lei.txt"))
-        file = np.loadtxt(path, delimiter=', ')
+        file = np.loadtxt(path)
         refx = file[:, 0]
         refy = file[:, 1] - file[:, 1][0]
         f = interpolate.interp1d(refx, refy, kind=3)
