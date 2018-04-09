@@ -10,6 +10,8 @@ class WaveformReducer:
     def __init__(self, n_pixels, n_samples, plot=False, **kwargs):
         self.kwargs = kwargs
 
+        self.extract_charge_only = kwargs.get("extract_charge_only", False)
+
         self.t_event = 0
         self.window_size = 0
         self.window_shift = 0
@@ -43,9 +45,10 @@ class WaveformReducer:
         params = dict(t_event=self.t_event)
 
         params.update(self._get_charge(waveforms))
-        params.update(self._get_baseline(waveforms))
-        params.update(self._get_timing(waveforms))
-        params.update(self._get_saturation(waveforms))
+        if not self.extract_charge_only:
+            params.update(self._get_baseline(waveforms))
+            params.update(self._get_timing(waveforms))
+            params.update(self._get_saturation(waveforms))
 
         return params
 
@@ -55,6 +58,11 @@ class WaveformReducer:
         else:
             avg = np.mean(waveforms, axis=0)
             t_event = np.argmax(avg)
+            n_samples = waveforms.shape[1]
+            if t_event < 10:
+                t_event = 10
+            elif t_event > n_samples - 10:
+                t_event = n_samples - 10
         self.t_event = t_event
         self.window_size = self.kwargs.get("window_size", 8)
         self.window_shift = self.kwargs.get("window_shift", 4)
