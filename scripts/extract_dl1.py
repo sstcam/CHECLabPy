@@ -109,6 +109,7 @@ def main():
             sn_dict['TM{}_SN'.format(tm)] = reader.get_sn(tm)
 
         metadata = dict(
+            source="CHECLabPy",
             input_path=input_path,
             n_events=n_events,
             n_modules=n_modules,
