@@ -1,12 +1,13 @@
 """
 Plot waveform
 """
+from matplotlib.ticker import MultipleLocator
 from CHECLabPy.plotting.setup import Plotter
 
 
 class WaveformPlotter(Plotter):
-    def __init__(self, title="", units="", tunits="ns"):
-        super().__init__()
+    def __init__(self, title="", units="", tunits="ns", talk=False):
+        super().__init__(talk=talk)
         self.title = title
         self.units = units
         self.tunits = tunits
@@ -27,3 +28,4 @@ class WaveformPlotter(Plotter):
         if self.units:
             y_label += " ({})".format(self.units)
         self.ax.set_ylabel(y_label)
+        self.ax.xaxis.set_major_locator(MultipleLocator(16))

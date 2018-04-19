@@ -4,6 +4,7 @@ waveforms
 """
 import numpy as np
 from tqdm import tqdm
+from CHECLabPy.waveform_reducers.cross_correlation import CrossCorrelation
 
 
 class BaselineSubtractor:
@@ -91,19 +92,20 @@ def get_average_wf(source, t_shift):
         waveform across all events and pixels
     """
     n_events = source.n_events
-    n_pixels = source.n_pixels
     n_samples = source.n_samples
 
     baseline_subtractor = BaselineSubtractor(source)
 
     desc = "Processing events"
-    all_wf = np.zeros((n_events, n_pixels, n_samples))
+    average_wf = np.zeros(n_samples)
+    n = 0
     for waveforms in tqdm(source, total=n_events, desc=desc):
-        iev = source.index
-
         waveforms_bs = baseline_subtractor.subtract(waveforms)
 
-        all_wf[iev] = shift_waveform(waveforms_bs, t_shift)
+        wf = shift_waveform(waveforms_bs, t_shift)
 
-    average_wf = np.mean(all_wf, axis=(0, 1))
+        average_wf += wf.mean(0)
+        n += 1
+
+    average_wf /= n
     return average_wf

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from astropy.io import fits
 import warnings
-from os.path import dirname, exists
+import os
 from os import remove
 from abc import ABC, abstractmethod
 from CHECLabPy.utils.files import create_directory
@@ -22,7 +22,7 @@ class TIOReader:
                    "wiki/Installing_CHEC_Software")
             raise ModuleNotFoundError(msg)
 
-        if not exists(path):
+        if not os.path.exists(path):
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
 
@@ -38,6 +38,8 @@ class TIOReader:
 
         self._camera_config = CameraConfiguration(self._reader.fCameraVersion)
         self._mapping = self._camera_config.GetMapping(self.n_modules == 1)
+
+        self._pixel = self._PixelWaveforms(self)
 
         self.n_cells = self._camera_config.GetNCells()
         self.camera_version = self._camera_config.GetVersion()
@@ -74,6 +76,28 @@ class TIOReader:
 
     def __getitem__(self, iev):
         return np.copy(self._get_event(iev))
+
+    class _PixelWaveforms:
+        def __init__(self, tio_reader):
+            self.reader = tio_reader
+
+        def __getitem__(self, p):
+            if not isinstance(p, list) and not isinstance(p, np.ndarray):
+                p = [p]
+
+            n_events = self.reader.n_events
+            n_pixels = len(p)
+            n_samples = self.reader.n_samples
+            waveforms = np.zeros((n_events, n_pixels, n_samples))
+
+            for iev, wf in enumerate(self.reader):
+                waveforms[iev] = wf[p]
+
+            return waveforms
+
+    @property
+    def pixel(self):
+        return self._pixel
 
     @property
     def mapping(self):
@@ -114,6 +138,7 @@ class TIOReader:
             return False
         return True
 
+
 class ReaderR1(TIOReader):
     """
     Reader for the R1 tio files
@@ -140,8 +165,8 @@ class DL1Writer:
     """
     def __init__(self, dl1_path, totalrows, monitor_path=None):
         print("Creating HDF5 file: {}".format(dl1_path))
-        create_directory(dirname(dl1_path))
-        if exists(dl1_path):
+        create_directory(os.path.dirname(dl1_path))
+        if os.path.exists(dl1_path):
             remove(dl1_path)
 
         self.totalrows = totalrows
@@ -247,7 +272,7 @@ class MonitorWriter:
               "to unix/UTC")
 
         print("Reading monitor information from: {}".format(monitor_path))
-        if not exists(monitor_path):
+        if not os.path.exists(monitor_path):
             FileNotFoundError("Cannot find monitor file: {}"
                               .format(monitor_path))
 
@@ -608,7 +633,7 @@ class DL1Reader(HDFStoreReader):
     def __init__(self, path):
         super().__init__()
         print("Opening HDF5 file: {}".format(path))
-        if not exists(path):
+        if not os.path.exists(path):
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.store = pd.HDFStore(
             path, mode='r', complevel=9, complib='blosc:blosclz'

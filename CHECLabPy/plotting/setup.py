@@ -6,16 +6,31 @@ from CHECLabPy.utils.files import create_directory
 
 
 class Plotter:
-    def __init__(self):
+    def __init__(self, talk=False):
         # sns.set_style("white")
         # sns.set_style("ticks")
-        rc = {"font.family": "Helvetica",
-              "font.size": 10,
-              "axes.titlesize": 10,
-              "axes.labelsize": 10,
-              "legend.fontsize": 10,
-              "lines.markeredgewidth": 1,
-              }
+        rc = {
+            "font.family": [u"Helvetica"],
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+            "font.size": 10,
+            "axes.titlesize": 10,
+            "axes.labelsize": 10,
+            "legend.fontsize": 10,
+            "lines.markeredgewidth": 1
+        }
+        if talk:
+            talk_rc = {
+                "font.family": [u"Helvetica"],
+                "xtick.labelsize": 12,
+                "ytick.labelsize": 12,
+                "font.size": 12,
+                "axes.titlesize": 12,
+                "axes.labelsize": 12,
+                "legend.fontsize": 10,
+                "lines.markeredgewidth": 1
+            }
+            rc = {**rc, **talk_rc}
         mpl.rcParams.update(rc)
         # sns.set_context("talk", rc=rc)
 

@@ -6,7 +6,7 @@ from CHECLabPy.plotting.setup import Plotter
 
 
 class CameraPlotter(Plotter):
-    def __init__(self, mapping):
+    def __init__(self, mapping, talk=False):
         """
         Plot values in a camera image
 
@@ -21,7 +21,7 @@ class CameraPlotter(Plotter):
             CHECLabPy.io.ReaderR1.mapping
             CHECLabPy.io.DL1Reader.mapping
         """
-        super().__init__()
+        super().__init__(talk=talk)
         self.mapping = mapping
 
         self.row = self.mapping['row'].values
@@ -31,7 +31,7 @@ class CameraPlotter(Plotter):
 
         self.data = np.ma.zeros((self.n_rows, self.n_cols))
         self.image = self.ax.imshow(self.data, origin='lower')
-        self.fig.colorbar(self.image)
+        self.colorbar = self.fig.colorbar(self.image)
         self.ax.axis('off')
 
     @staticmethod

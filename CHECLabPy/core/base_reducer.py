@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
-
+from IPython import embed
 
 class WaveformReducer:
     """
@@ -123,8 +123,8 @@ class WaveformReducer:
         return xm, ym
 
     def interpolate_wf_peak(self, waveforms):
-        start = self.window_start
-        end = self.window_end
+        start = self.window_start - 3
+        end = self.window_end + 3
         t1 = np.argmax(waveforms[:, start:end], 1) + start
         y0 = waveforms[self.pixel_arange, t1 - 1]
         y1 = waveforms[self.pixel_arange, t1]
@@ -133,19 +133,28 @@ class WaveformReducer:
         peak_time = xm + t1
         peak_amp = ym
         isinf = np.isinf(peak_time)
-        peak_time[isinf] = self.t_event
-        peak_amp[isinf] = waveforms[isinf, self.t_event]
+        outofrange = (peak_time >= end) | (peak_time < start)
+        mask = isinf | outofrange
+        peak_time[mask] = self.t_event
+        peak_amp[mask] = waveforms[mask, self.t_event]
         return peak_time, peak_amp
 
     def _get_timing(self, waveforms):
+        n_pixels, n_samples = waveforms.shape
+
         ind = self.ind
         r_ind = self.r_ind
 
+        bad_wf_mask = np.zeros(n_pixels, dtype=np.bool)
+
         with np.errstate(divide='ignore', invalid='ignore'):
-            t_pulse, amp_pulse = self.interpolate_wf_peak(waveforms)
+            t_max, amp_max = self.interpolate_wf_peak(waveforms)
+
+        t_pulse = t_max
+        amp_pulse = amp_max
 
         reversed_ = waveforms[:, ::-1]
-        peak_time_i = np.ones(waveforms.shape) * self.t_event
+        peak_time_i = np.ones(waveforms.shape) * t_pulse[:, None]
         mask_before = np.ma.masked_less(ind, peak_time_i).mask
         mask_after = np.ma.masked_greater(r_ind, peak_time_i).mask
         masked_bef = np.ma.masked_array(waveforms, mask_before)
@@ -166,7 +175,9 @@ class WaveformReducer:
         with np.errstate(divide='ignore', invalid='ignore'):
             t_l = self.interpolate(half_max, w_l2, w_l1, t_l2, t_l1)
             t_r = self.interpolate(half_max, w_r2, w_r1, t_r2, t_r1)
-        fwhm = t_r - t_l
+            where = ((t_l > t_r) | (t_l < 0) | (t_r < 0) |
+                     (t_l > n_samples) | (t_r > n_samples))
+            bad_wf_mask = bad_wf_mask | where
 
         _10percent = 0.1 * amp_pulse
         _90percent = 0.9 * amp_pulse
@@ -183,6 +194,15 @@ class WaveformReducer:
         with np.errstate(divide='ignore', invalid='ignore'):
             t10 = self.interpolate(_10percent, w10_2, w10_1, t10_2, t10_1)
             t90 = self.interpolate(_90percent, w90_2, w90_1, t90_2, t90_1)
+            where = ((t10 > t90) | (t10 < 0) | (t90 < 0) |
+                     (t10 > n_samples) | (t90 > n_samples))
+            bad_wf_mask = bad_wf_mask | where
+
+        t_l[bad_wf_mask] = np.nan
+        t_r[bad_wf_mask] = np.nan
+        t10[bad_wf_mask] = np.nan
+        t90[bad_wf_mask] = np.nan
+        fwhm = t_r - t_l
         rise_time = t90 - t10
 
         if self.plot:

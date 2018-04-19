@@ -16,11 +16,18 @@ class CrossCorrelation(WaveformReducer):
     and take the maximum as the peak time.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, n_pixels, n_samples, plot=False, **kwargs):
+        super().__init__(n_pixels, n_samples, plot, **kwargs)
         path = self.kwargs.get("reference_pulse_path",
                                get_file("checs_reference_pulse_lei.txt"))
+
+        self.reference_pulse, self.y_1pe = self.load_reference_pulse(path)
+        self.cc = None
+
+    @staticmethod
+    def load_reference_pulse(path):
         file = np.loadtxt(path)
+        print("Loaded reference pulse: {}".format(path))
         refx = file[:, 0]
         refy = file[:, 1] - file[:, 1][0]
         f = interpolate.interp1d(refx, refy, kind=3)
@@ -35,13 +42,12 @@ class CrossCorrelation(WaveformReducer):
             y = np.pad(y, (0, -pad), mode='constant')
 
         # Create 1p.e. pulse shape
-        self.y_1pe = y / np.trapz(y)
+        y_1pe = y / np.trapz(y)
 
         # Make maximum of cc result == 1
-        y = y / correlate1d(self.y_1pe, y).max()
+        y = y / correlate1d(y_1pe, y).max()
 
-        self.reference_pulse = y
-        self.cc = None
+        return y, y_1pe
 
     def get_pulse_height(self, charge):
         return charge * self.y_1pe.max()
