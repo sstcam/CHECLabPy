@@ -106,7 +106,7 @@ def main():
 
         sn_dict = {}
         for tm in range(n_modules):
-            sn_dict['TM{}_SN'.format(tm)] = reader.get_sn(tm)
+            sn_dict['TM{:02d}_SN'.format(tm)] = reader.get_sn(tm)
 
         metadata = dict(
             source="CHECLabPy",

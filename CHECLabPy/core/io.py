@@ -37,7 +37,7 @@ class TIOReader:
         self.n_samples = self._reader.fNSamples
 
         self._camera_config = CameraConfiguration(self._reader.fCameraVersion)
-        self._mapping = self._camera_config.GetMapping(self.n_modules == 1)
+        self.tc_mapping = self._camera_config.GetMapping(self.n_modules == 1)
 
         self._pixel = self._PixelWaveforms(self)
 
@@ -101,25 +101,26 @@ class TIOReader:
 
     @property
     def mapping(self):
-        df = self._mapping.as_dataframe()
+        df = self.tc_mapping.as_dataframe()
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
             df.metadata = dict(
-                cfgfile=self._mapping.GetCfgPath(),
-                is_single_module=self._mapping.IsSingleModule(),
-                n_pixels=self._mapping.GetNPixels(),
-                n_modules=self._mapping.GetNModules(),
-                n_tmpix=self._mapping.GetNTMPix(),
-                n_rows=self._mapping.GetNRows(),
-                n_columns=self._mapping.GetNColumns(),
-                fOTUpRow_l=self._mapping.fOTUpRow_l,
-                fOTUpRow_u=self._mapping.fOTUpRow_u,
-                fOTUpCol_l=self._mapping.fOTUpCol_l,
-                fOTUpCol_u=self._mapping.fOTUpCol_u,
-                fOTUpX_l=self._mapping.fOTUpX_l,
-                fOTUpX_u=self._mapping.fOTUpX_u,
-                fOTUpY_l=self._mapping.fOTUpY_l,
-                fOTUpY_u=self._mapping.fOTUpY_u
+                cfgfile=self.tc_mapping.GetCfgPath(),
+                camera_version=self.camera_version,
+                is_single_module=self.tc_mapping.IsSingleModule(),
+                n_pixels=self.tc_mapping.GetNPixels(),
+                n_modules=self.tc_mapping.GetNModules(),
+                n_tmpix=self.tc_mapping.GetNTMPix(),
+                n_rows=self.tc_mapping.GetNRows(),
+                n_columns=self.tc_mapping.GetNColumns(),
+                fOTUpRow_l=self.tc_mapping.fOTUpRow_l,
+                fOTUpRow_u=self.tc_mapping.fOTUpRow_u,
+                fOTUpCol_l=self.tc_mapping.fOTUpCol_l,
+                fOTUpCol_u=self.tc_mapping.fOTUpCol_u,
+                fOTUpX_l=self.tc_mapping.fOTUpX_l,
+                fOTUpX_u=self.tc_mapping.fOTUpX_u,
+                fOTUpY_l=self.tc_mapping.fOTUpY_l,
+                fOTUpY_u=self.tc_mapping.fOTUpY_u
             )
         return df
 
@@ -254,6 +255,8 @@ class DL1Writer:
         # cols = self.store.get_storer('data').attrs.non_index_axes[0][1]
         # self.store.create_table_index('data', columns=['iev'], kind='full')
         if self.monitor:
+            camera_version = self.metadata['camera_version']
+            self.monitor.add_metadata(camera_version=camera_version)
             self.monitor.finish()
         self.add_metadata(n_bytes=self.n_bytes)
         self._save_metadata()
@@ -489,6 +492,13 @@ class HDFStoreReader(ABC):
             df.metadata = self.store.get_storer('mapping').attrs.metadata
         return df
 
+    @property
+    def tc_mapping(self):
+        from target_calib import CameraConfiguration
+        version = self.mapping.metadata.version
+        camera_config = CameraConfiguration(version)
+        return camera_config.GetMapping(self.n_modules == 1)
+
     def get_sn(self, tm):
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
@@ -681,7 +691,7 @@ class DL1Reader(HDFStoreReader):
             return False
         return True
 
-    def get_monitor_column(self, monitor_index, column):
+    def get_monitor_column(self, monitor_index, column_name):
         """
         Get a column from the monitor column corresponding to the
         monitor_index of the currect 'data' DataFrame.
@@ -690,7 +700,7 @@ class DL1Reader(HDFStoreReader):
         ----------
         monitor_index : ndarray
             The indicis of the monitor rows requested
-        column : str
+        column_name : str
             Column name from the monitor DataFrame
 
         Returns
@@ -698,11 +708,11 @@ class DL1Reader(HDFStoreReader):
 
         """
         try:
-            column = self.monitor.select_column(column)[monitor_index]
+            column = self.monitor.select_column(column_name)[monitor_index]
         except AttributeError:
             raise AttributeError("No monitor information was included in "
                                  "the creation of this file")
-        return self.monitor.select_column(column)[monitor_index]
+        return column
 
 
 class MonitorReader(HDFStoreReader):
