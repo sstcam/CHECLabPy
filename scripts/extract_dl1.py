@@ -110,6 +110,7 @@ def main():
 
         metadata = dict(
             source="CHECLabPy",
+            date_generated=pd.datetime.now(),
             input_path=input_path,
             n_events=n_events,
             n_modules=n_modules,

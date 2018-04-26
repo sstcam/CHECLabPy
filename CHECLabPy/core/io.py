@@ -6,6 +6,7 @@ import os
 from os import remove
 from abc import ABC, abstractmethod
 from CHECLabPy.utils.files import create_directory
+from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 
 
 class TIOReader:
@@ -101,28 +102,7 @@ class TIOReader:
 
     @property
     def mapping(self):
-        df = self.tc_mapping.as_dataframe()
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', UserWarning)
-            df.metadata = dict(
-                cfgfile=self.tc_mapping.GetCfgPath(),
-                camera_version=self.camera_version,
-                is_single_module=self.tc_mapping.IsSingleModule(),
-                n_pixels=self.tc_mapping.GetNPixels(),
-                n_modules=self.tc_mapping.GetNModules(),
-                n_tmpix=self.tc_mapping.GetNTMPix(),
-                n_rows=self.tc_mapping.GetNRows(),
-                n_columns=self.tc_mapping.GetNColumns(),
-                fOTUpRow_l=self.tc_mapping.fOTUpRow_l,
-                fOTUpRow_u=self.tc_mapping.fOTUpRow_u,
-                fOTUpCol_l=self.tc_mapping.fOTUpCol_l,
-                fOTUpCol_u=self.tc_mapping.fOTUpCol_u,
-                fOTUpX_l=self.tc_mapping.fOTUpX_l,
-                fOTUpX_u=self.tc_mapping.fOTUpX_u,
-                fOTUpY_l=self.tc_mapping.fOTUpY_l,
-                fOTUpY_u=self.tc_mapping.fOTUpY_u
-            )
-        return df
+        return get_clp_mapping_from_tc_mapping(self.tc_mapping)
 
     def get_sn(self, tm):
         if tm >= self.n_modules:
