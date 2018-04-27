@@ -147,6 +147,28 @@ def plot_pixel_postions():
     plt.show()
 
 
+def plot_tm_edge_labels():
+    """
+    Annotate plot with the TM numbers on the edges
+    """
+    camera_version = "1.0.1"
+    camera = CameraImage.from_camera_version(camera_version)
+    pixels = np.arange(camera.n_pixels)
+    camera.annotate_tm_edge_label()
+    plt.show()
+
+
+def plot_tm_edge_labels_imshow():
+    """
+    Annotate plot with the TM numbers on the edges
+    """
+    camera_version = "1.0.1"
+    camera = CameraImageImshow.from_camera_version(camera_version)
+    pixels = np.arange(camera.n_pixels)
+    camera.annotate_tm_edge_label()
+    plt.show()
+
+
 if __name__ == '__main__':
     plot_from_tio()
     plot_from_dl1()
@@ -158,3 +180,5 @@ if __name__ == '__main__':
     plot_superpixel()
     plot_tm()
     plot_pixel_postions()
+    plot_tm_edge_labels()
+    plot_tm_edge_labels_imshow()

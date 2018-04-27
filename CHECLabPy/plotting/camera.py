@@ -157,6 +157,17 @@ class CameraImage(Plotter):
             print("Cannot annotate, no mapping attached to class")
 
     def add_pixel_text(self, values, fmt=None, size=3):
+        """
+        Add a text label to each pixel
+
+        Parameters
+        ----------
+        values : ndarray
+        fmt : str
+            String/float formatting expression
+        size : int
+            Font size
+        """
         assert values.size == self.n_pixels
         for pix in range(self.n_pixels):
             pos_x = self.xpix[pix]
@@ -166,6 +177,33 @@ class CameraImage(Plotter):
                 val = fmt.format(val)
             self.ax.text(pos_x, pos_y, val, fontsize=size,
                          color='w', ha='center')
+
+    def annotate_tm_edge_label(self):
+        """
+        Annotate each of the TMs on the top and bottom of the camera
+        """
+        if self._mapping is not None:
+            kw = dict(fontsize=6, color='black', ha='center')
+            m = self._mapping
+            pix_size = self._mapping.metadata['size']
+            f_tm_top = lambda g: m.ix[m.ix[g.index]['row'].idxmax(), 'slot']
+            f_tm_bottom = lambda g: m.ix[m.ix[g.index]['row'].idxmin(), 'slot']
+            tm_top = np.unique(m.groupby('col').agg(f_tm_top)['slot'])
+            tm_bottom = np.unique(m.groupby('col').agg(f_tm_bottom)['slot'])
+            for tm in tm_top:
+                df = m.loc[m['slot'] == tm]
+                ypix = df['ypix'].max() + pix_size * 0.7
+                xpix = df['xpix'].mean()
+                tm_txt = "TM{:02d}".format(tm)
+                self.ax.text(xpix, ypix, tm_txt, va='bottom', **kw)
+            for tm in tm_bottom:
+                df = m.loc[m['slot'] == tm]
+                ypix = df['ypix'].min() - pix_size * 0.7
+                xpix = df['xpix'].mean()
+                tm_txt = "TM{:02d}".format(tm)
+                self.ax.text(xpix, ypix, tm_txt, va='top', **kw)
+        else:
+            print("Cannot annotate, no mapping attached to class")
 
     @classmethod
     def from_mapping(cls, mapping, talk=False):
@@ -338,6 +376,17 @@ class CameraImageImshow(Plotter):
             print("Cannot annotate, no mapping attached to class")
 
     def add_pixel_text(self, values, fmt=None, size=3):
+        """
+        Add a text label to each pixel
+
+        Parameters
+        ----------
+        values : ndarray
+        fmt : str
+            String/float formatting expression
+        size : int
+            Font size
+        """
         assert values.size == self.n_pixels
         for pix in range(self.n_pixels):
             pos_x = self.col[pix]
@@ -347,6 +396,33 @@ class CameraImageImshow(Plotter):
                 val = fmt.format(val)
             self.ax.text(pos_x, pos_y, val, fontsize=size,
                          color='w', ha='center')
+
+    def annotate_tm_edge_label(self):
+        """
+        Annotate each of the TMs on the top and bottom of the camera
+        """
+        if self._mapping is not None:
+            kw = dict(fontsize=6, color='black', ha='center')
+            m = self._mapping
+            n_rows = m.metadata['n_rows']
+            f_tm_top = lambda g: m.ix[m.ix[g.index]['row'].idxmax(), 'slot']
+            f_tm_bottom = lambda g: m.ix[m.ix[g.index]['row'].idxmin(), 'slot']
+            tm_top = np.unique(m.groupby('col').agg(f_tm_top)['slot'])
+            tm_bottom = np.unique(m.groupby('col').agg(f_tm_bottom)['slot'])
+            for tm in tm_top:
+                df = m.loc[m['slot'] == tm]
+                row = df['row'].max() + n_rows/48 + 0.4
+                col = df['col'].mean()
+                tm_txt = "TM{:02d}".format(tm)
+                self.ax.text(col, row, tm_txt, va='bottom', **kw)
+            for tm in tm_bottom:
+                df = m.loc[m['slot'] == tm]
+                row = df['row'].min() - n_rows/48 - 0.4
+                col = df['col'].mean()
+                tm_txt = "TM{:02d}".format(tm)
+                self.ax.text(col, row, tm_txt, va='top', **kw)
+        else:
+            print("Cannot annotate, no mapping attached to class")
 
     @classmethod
     def from_mapping(cls, mapping, talk=False):

@@ -75,12 +75,16 @@ def get_superpixel_mapping(mapping):
     `pandas.DataFrame`
 
     """
-    df = mapping.groupby('superpixel').mean().reset_index()
+    df = mapping[['superpixel', 'slot', 'asic', 'row', 'col', 'xpix', 'ypix']]
+    f_rowcol = lambda v: v.values[0] // 2
+    f = dict(slot='first', asic='first', row=f_rowcol, col=f_rowcol,
+             xpix='mean', ypix='mean')
+    df = df.groupby('superpixel').agg(f).reset_index()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', UserWarning)
         df.metadata = mapping.metadata
-    df.metadata['n_rows'] = df['row'].max() - 1
-    df.metadata['n_columns'] = df['col'].max() - 1
+    df.metadata['n_rows'] = df['row'].max() + 1
+    df.metadata['n_columns'] = df['col'].max() + 1
     df.metadata['size'] *= 2
     return df
 
@@ -100,11 +104,14 @@ def get_tm_mapping(mapping):
     `pandas.DataFrame`
 
     """
-    df = mapping.groupby('slot').mean().reset_index()
+    df = mapping[['slot', 'row', 'col', 'xpix', 'ypix']]
+    f_rowcol = lambda v: v.values[0] // 8
+    f = dict(row=f_rowcol, col=f_rowcol, xpix='mean', ypix='mean')
+    df = df.groupby('slot').agg(f, as_index=False).reset_index()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', UserWarning)
         df.metadata = mapping.metadata
-    df.metadata['n_rows'] = df['row'].max() - 1
-    df.metadata['n_columns'] = df['col'].max() - 1
+    df.metadata['n_rows'] = df['row'].max() + 1
+    df.metadata['n_columns'] = df['col'].max() + 1
     df.metadata['size'] *= 8
     return df
