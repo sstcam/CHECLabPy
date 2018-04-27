@@ -6,8 +6,23 @@ from CHECLabPy.plotting.setup import Plotter
 
 
 class WaveformPlotter(Plotter):
-    def __init__(self, title="", units="", tunits="ns", talk=False):
-        super().__init__(talk=talk)
+    def __init__(self, title="", units="", tunits="ns", ax=None, talk=False):
+        """
+        Create a plotter for a waveform
+
+        Parameters
+        ----------
+        title : str
+        units : str
+            Y axis units
+        tunits : str
+            X axis (time) units
+        ax : `matplotlib.axes.Axes`
+            Optionally place the plot on a pre-existing axes
+        talk : bool
+            Configure appearance to be appropriate for a presentation
+        """
+        super().__init__(ax=ax, talk=talk)
         self.title = title
         self.units = units
         self.tunits = tunits

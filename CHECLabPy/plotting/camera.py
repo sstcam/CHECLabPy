@@ -69,7 +69,7 @@ class CameraPlotter(Plotter):
 
 
 class CameraImage(Plotter):
-    def __init__(self, xpix, ypix, size, talk=False):
+    def __init__(self, xpix, ypix, size, ax=None, talk=False):
         """
         Create a camera-image plot
 
@@ -81,10 +81,12 @@ class CameraImage(Plotter):
             The Y positions of the pixels/superpixels/TMs
         size : float
             The size of the pixels/superpixels/TMs
+        ax : `matplotlib.axes.Axes`
+            Optionally place the plot on a pre-existing axes
         talk : bool
             Plot with presentation formatting
         """
-        super().__init__(talk=talk)
+        super().__init__(ax=ax, talk=talk)
 
         self._image = None
         self._mapping = None
@@ -223,7 +225,7 @@ class CameraImage(Plotter):
 
 
 class CameraImageImshow(Plotter):
-    def __init__(self, row, col, n_rows, n_cols, talk=False):
+    def __init__(self, row, col, n_rows, n_cols, ax=None, talk=False):
         """
         Create a camera-image plot using imshow (essentially a 2D histogram,
         therefore missing module gaps)
@@ -238,10 +240,12 @@ class CameraImageImshow(Plotter):
             The number of rows of pixel/superpixel/TM on the camera
         n_cols : int
             The number of rows of pixel/superpixel/TM on the camera
+        ax : `matplotlib.axes.Axes`
+            Optionally place the plot on a pre-existing axes
         talk : bool
             Plot with presentation formatting
         """
-        super().__init__(talk=talk)
+        super().__init__(ax=ax, talk=talk)
 
         self._image = None
         self._mapping = None
