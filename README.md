@@ -9,6 +9,10 @@ intstructions for preparing your environment and installing the
 TARGET libraries. It is not a requirement to install the TARGET libraries 
 to use this package (unless you wish to read R0/R1 tio files).
 
+To set up TC_CONFIG_PATH for the Transfer Functions, download
+svn.in2p3.fr/cta/Sandbox/justuszorn/CHECDevelopment/CHECS/Operation to a
+directory, and `export TC_CONFIG_PATH=...`.
+
 To contribute a new charge-extraction/waveform-reducer method please read the
 waveform_reducers section.
 

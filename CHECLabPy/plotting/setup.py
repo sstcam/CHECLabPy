@@ -1,12 +1,22 @@
 import matplotlib as mpl
 from matplotlib import pyplot as plt
-from os.path import dirname
+import os
 import numpy as np
 from CHECLabPy.utils.files import create_directory
 
 
 class Plotter:
-    def __init__(self, talk=False):
+    def __init__(self, ax=None, talk=False):
+        """
+        Base class for plotting classes to define common appearance
+
+        Parameters
+        ----------
+        ax : `matplotlib.axes.Axes`
+            Optionally place the plot on a pre-existing axes
+        talk : bool
+            Configure appearance to be appropriate for a presentation
+        """
         # sns.set_style("white")
         # sns.set_style("ticks")
         rc = {
@@ -34,7 +44,11 @@ class Plotter:
         mpl.rcParams.update(rc)
         # sns.set_context("talk", rc=rc)
 
-        self.fig, self.ax = self.create_figure()
+        if ax:
+            self.ax = ax
+            self.fig = ax.figure
+        else:
+            self.fig, self.ax = self.create_figure()
 
     @staticmethod
     def figsize(scale=0.9):
@@ -67,7 +81,8 @@ class Plotter:
 
     def save(self, output_path):
         self.finish()
-        output_dir = dirname(output_path)
+        output_dir = os.path.dirname(output_path)
         self.create_directory(output_dir)
+        self.fig.tight_layout()
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))
