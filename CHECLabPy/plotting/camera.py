@@ -90,12 +90,16 @@ class CameraImage(Plotter):
 
         self._image = None
         self._mapping = None
+        self.colorbar = None
 
-        assert xpix.size == ypix.size
-        self.n_pixels = xpix.size
+        self.xpix = xpix
+        self.ypix = ypix
+
+        assert self.xpix.size == self.ypix.size
+        self.n_pixels = self.xpix.size
 
         patches = []
-        for xx, yy in zip(xpix, ypix):
+        for xx, yy in zip(self.xpix, self.ypix):
             rr = size + 0.0001  # extra size to pixels to avoid aliasing
             poly = Rectangle(
                 (xx - rr / 2., yy - rr / 2.),
@@ -108,7 +112,6 @@ class CameraImage(Plotter):
         self.pixels = PatchCollection(patches, linewidth=0)
         self.ax.add_collection(self.pixels)
         self.pixels.set_array(np.zeros(self.n_pixels))
-        self.colorbar = self.ax.figure.colorbar(self.pixels)
 
         self.ax.set_aspect('equal', 'datalim')
         self.ax.set_xlabel("X position (m)")
@@ -133,7 +136,10 @@ class CameraImage(Plotter):
         self.pixels.autoscale()
         self.ax.figure.canvas.draw()
 
-    def annotate(self):
+    def add_colorbar(self, label=''):
+        self.colorbar = self.ax.figure.colorbar(self.pixels, label=label)
+
+    def annotate_on_telescope_up(self):
         """
         Add an arrow indicating where "ON-Telescope-UP" is
         """
@@ -149,6 +155,17 @@ class CameraImage(Plotter):
                          ha='center', va='bottom')
         else:
             print("Cannot annotate, no mapping attached to class")
+
+    def add_pixel_text(self, values, fmt=None, size=3):
+        assert values.size == self.n_pixels
+        for pix in range(self.n_pixels):
+            pos_x = self.xpix[pix]
+            pos_y = self.ypix[pix]
+            val = values[pix]
+            if fmt:
+                val = fmt.format(val)
+            self.ax.text(pos_x, pos_y, val, fontsize=size,
+                         color='w', ha='center')
 
     @classmethod
     def from_mapping(cls, mapping, talk=False):
@@ -249,18 +266,19 @@ class CameraImageImshow(Plotter):
 
         self._image = None
         self._mapping = None
+        self.colorbar = None
 
         self.row = row
         self.col = col
         self.n_rows = n_rows
         self.n_cols = n_cols
+        self.n_pixels = self.row.size
 
         assert self.row.size == self.col.size
 
         data = np.ma.zeros((self.n_rows, self.n_cols))
         self.mask(data)
         self.camera = self.ax.imshow(data, origin='lower')
-        self.colorbar = self.fig.colorbar(self.camera)
         self.ax.axis('off')
 
     @staticmethod
@@ -273,7 +291,7 @@ class CameraImageImshow(Plotter):
 
     @image.setter
     def image(self, val):
-        assert val.size == self.row.size
+        assert val.size == self.n_pixels
 
         self._image = val
         data = np.ma.zeros((self.n_rows, self.n_cols))
@@ -281,6 +299,9 @@ class CameraImageImshow(Plotter):
         data[self.row, self.col] = val
         self.camera.set_data(data)
         self.camera.autoscale()
+
+    def add_colorbar(self, label=''):
+        self.colorbar = self.fig.colorbar(self.camera, label=label)
 
     def mask(self, data):
         if (self.n_rows == 48) & (self.n_cols == 48):
@@ -299,7 +320,7 @@ class CameraImageImshow(Plotter):
             data[5:6, 0:1] = np.ma.masked
             data[5:6, 5:6] = np.ma.masked
 
-    def annotate(self):
+    def annotate_on_telescope_up(self):
         """
         Add an arrow indicating where "ON-Telescope-UP" is
         """
@@ -315,6 +336,17 @@ class CameraImageImshow(Plotter):
                          ha='center', va='bottom')
         else:
             print("Cannot annotate, no mapping attached to class")
+
+    def add_pixel_text(self, values, fmt=None, size=3):
+        assert values.size == self.n_pixels
+        for pix in range(self.n_pixels):
+            pos_x = self.col[pix]
+            pos_y = self.row[pix]
+            val = values[pix]
+            if fmt:
+                val = fmt.format(val)
+            self.ax.text(pos_x, pos_y, val, fontsize=size,
+                         color='w', ha='center')
 
     @classmethod
     def from_mapping(cls, mapping, talk=False):
