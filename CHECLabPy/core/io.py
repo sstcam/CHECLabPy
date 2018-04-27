@@ -470,6 +470,12 @@ class HDFStoreReader(ABC):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
             df.metadata = self.store.get_storer('mapping').attrs.metadata
+        if 'size' not in df.metadata:
+            print("WARNING: This file is outdated, please re-generate it "
+                  "using scripts/extract_dl1.py")
+            df_row = df.loc[df['row'] == df.metadata.n_rows/2]
+            x = df_row['xpix'].values
+            df.metadata['size'] = np.min(np.diff(np.sort(x)))
         return df
 
     @property
