@@ -44,6 +44,7 @@ class TIOReader:
 
         self.n_cells = self._camera_config.GetNCells()
         self.camera_version = self._camera_config.GetVersion()
+        self.reference_pulse_path = self._camera_config.GetReferencePulsePath()
 
         self.current_tack = None
         self.current_cpu_ns = None

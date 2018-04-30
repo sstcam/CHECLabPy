@@ -16,22 +16,24 @@ class CrossCorrelation(WaveformReducer):
     and take the maximum as the peak time.
     """
 
-    def __init__(self, n_pixels, n_samples, plot=False, **kwargs):
+    def __init__(self, n_pixels, n_samples, plot=False,
+                 reference_pulse_path='', **kwargs):
         super().__init__(n_pixels, n_samples, plot, **kwargs)
-        path = self.kwargs.get("reference_pulse_path",
-                               get_file("checs_reference_pulse_lei.txt"))
 
-        self.reference_pulse, self.y_1pe = self.load_reference_pulse(path)
+        ref = self.load_reference_pulse(reference_pulse_path)
+        self.reference_pulse, self.y_1pe = ref
         self.cc = None
 
     @staticmethod
     def load_reference_pulse(path):
         file = np.loadtxt(path)
         print("Loaded reference pulse: {}".format(path))
+        time_slice = 1E-9
         refx = file[:, 0]
-        refy = file[:, 1] - file[:, 1][0]
+        refy = file[:, 1]
         f = interpolate.interp1d(refx, refy, kind=3)
-        x = np.linspace(0, 77e-9, 76)
+        max_sample = int(refx[-1] / time_slice)
+        x = np.linspace(0, max_sample * time_slice, max_sample + 1)
         y = f(x)
 
         # Put pulse in center so result peak time matches with input peak
