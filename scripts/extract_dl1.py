@@ -54,6 +54,8 @@ def main():
     pixel_array = np.arange(n_pixels)
     camera_version = reader.camera_version
     mapping = reader.mapping
+    if 'reference_pulse_path' not in config:
+        config['reference_pulse_path'] = reader.reference_pulse_path
 
     kwargs = dict(
         n_pixels=n_pixels,
