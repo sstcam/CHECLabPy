@@ -169,6 +169,19 @@ def plot_tm_edge_labels_imshow():
     plt.show()
 
 
+def plot_with_limits():
+    """
+    Set the z-axis limits
+    """
+    camera_version = "1.0.1"
+    camera = CameraImage.from_camera_version(camera_version)
+    image = np.arange(2048)
+    camera.add_colorbar()
+    camera.set_limits_minmax(0, 1000)
+    camera.image = image
+    plt.show()
+
+
 if __name__ == '__main__':
     plot_from_tio()
     plot_from_dl1()
@@ -182,3 +195,4 @@ if __name__ == '__main__':
     plot_pixel_postions()
     plot_tm_edge_labels()
     plot_tm_edge_labels_imshow()
+    plot_with_limits()
