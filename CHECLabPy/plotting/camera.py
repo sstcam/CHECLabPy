@@ -91,6 +91,7 @@ class CameraImage(Plotter):
         self._image = None
         self._mapping = None
         self.colorbar = None
+        self.autoscale = True
 
         self.xpix = xpix
         self.ypix = ypix
@@ -133,11 +134,26 @@ class CameraImage(Plotter):
 
         self.pixels.set_array(val)
         self.pixels.changed()
-        self.pixels.autoscale()
+        if self.autoscale:
+            self.pixels.autoscale() # Updates the colorbar
         self.ax.figure.canvas.draw()
 
     def add_colorbar(self, label=''):
         self.colorbar = self.ax.figure.colorbar(self.pixels, label=label)
+
+    def set_limits_minmax(self, zmin, zmax):
+        """
+        Set the color scale limits from min to max
+        """
+        self.pixels.set_clim(zmin, zmax)
+        self.autoscale = False
+
+    def reset_limits(self):
+        """
+        Reset to auto color scale limits
+        """
+        self.autoscale = True
+        self.pixels.autoscale()
 
     def annotate_on_telescope_up(self):
         """
@@ -305,6 +321,7 @@ class CameraImageImshow(Plotter):
         self._image = None
         self._mapping = None
         self.colorbar = None
+        self.autoscale = True
 
         self.row = row
         self.col = col
@@ -336,10 +353,25 @@ class CameraImageImshow(Plotter):
         self.mask(data)
         data[self.row, self.col] = val
         self.camera.set_data(data)
-        self.camera.autoscale()
+        if self.autoscale:
+            self.camera.autoscale()
 
     def add_colorbar(self, label=''):
         self.colorbar = self.fig.colorbar(self.camera, label=label)
+
+    def set_limits_minmax(self, zmin, zmax):
+        """
+        Set the color scale limits from min to max
+        """
+        self.camera.set_clim(zmin, zmax)
+        self.autoscale = False
+
+    def reset_limits(self):
+        """
+        Reset to auto color scale limits
+        """
+        self.autoscale = True
+        self.camera.autoscale()
 
     def mask(self, data):
         if (self.n_rows == 48) & (self.n_cols == 48):
