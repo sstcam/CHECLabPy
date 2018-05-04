@@ -136,7 +136,7 @@ def plot_tm():
     plt.show()
 
 
-def plot_pixel_postions():
+def plot_pixel_positions():
     """
     Plot pixel positions onto the camera
     """
@@ -192,7 +192,7 @@ if __name__ == '__main__':
     plot_imshow()
     plot_superpixel()
     plot_tm()
-    plot_pixel_postions()
+    plot_pixel_positions()
     plot_tm_edge_labels()
     plot_tm_edge_labels_imshow()
     plot_with_limits()

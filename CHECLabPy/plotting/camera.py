@@ -172,6 +172,26 @@ class CameraImage(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
+    def add_text_to_pixel(self, pixel, value, fmt=None, size=3):
+        """
+        Add a text label to a single pixel
+
+        Parameters
+        ----------
+        pixel : int
+        value : str or float
+        fmt : str
+            String/float formatting expression
+        size : int
+            Font size
+        """
+        pos_x = self.xpix[pixel]
+        pos_y = self.ypix[pixel]
+        if fmt:
+            val = fmt.format(value)
+        self.ax.text(pos_x, pos_y, value, fontsize=size,
+                     color='w', ha='center')
+
     def add_pixel_text(self, values, fmt=None, size=3):
         """
         Add a text label to each pixel
@@ -185,14 +205,8 @@ class CameraImage(Plotter):
             Font size
         """
         assert values.size == self.n_pixels
-        for pix in range(self.n_pixels):
-            pos_x = self.xpix[pix]
-            pos_y = self.ypix[pix]
-            val = values[pix]
-            if fmt:
-                val = fmt.format(val)
-            self.ax.text(pos_x, pos_y, val, fontsize=size,
-                         color='w', ha='center')
+        for pixel in range(self.n_pixels):
+            self.add_text_to_pixel(pixel, values[pixel], fmt, size)
 
     def annotate_tm_edge_label(self):
         """
@@ -407,6 +421,26 @@ class CameraImageImshow(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
+    def add_text_to_pixel(self, pixel, value, fmt=None, size=3):
+        """
+        Add a text label to a single pixel
+
+        Parameters
+        ----------
+        pixel : int
+        value : str or float
+        fmt : str
+            String/float formatting expression
+        size : int
+            Font size
+        """
+        pos_x = self.col[pixel]
+        pos_y = self.row[pixel]
+        if fmt:
+            val = fmt.format(value)
+        self.ax.text(pos_x, pos_y, value, fontsize=size,
+                     color='w', ha='center')
+
     def add_pixel_text(self, values, fmt=None, size=3):
         """
         Add a text label to each pixel
@@ -420,14 +454,8 @@ class CameraImageImshow(Plotter):
             Font size
         """
         assert values.size == self.n_pixels
-        for pix in range(self.n_pixels):
-            pos_x = self.col[pix]
-            pos_y = self.row[pix]
-            val = values[pix]
-            if fmt:
-                val = fmt.format(val)
-            self.ax.text(pos_x, pos_y, val, fontsize=size,
-                         color='w', ha='center')
+        for pixel in range(self.n_pixels):
+            self.add_text_to_pixel(pixel, values[pixel], fmt, size)
 
     def annotate_tm_edge_label(self):
         """
