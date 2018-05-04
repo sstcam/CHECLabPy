@@ -1,5 +1,6 @@
 from inspect import isabstract
 from CHECLabPy.core.base_reducer import WaveformReducer
+from CHECLabPy.core.spectrum_fitter import SpectrumFitter
 
 
 class Factory:
@@ -43,7 +44,7 @@ class Factory:
         return unique
 
     @classmethod
-    def produce(cls, product_name, **kwargs):
+    def produce(cls, product_name, *args, **kwargs):
         factory = cls()
         subclass_dict = dict(zip(factory.subclass_names, factory.subclasses))
 
@@ -54,10 +55,16 @@ class Factory:
                    'for factory.'.format(product_name))
             raise KeyError(msg)
 
-        return product(**kwargs)
+        return product(*args, **kwargs)
 
 
 class WaveformReducerFactory(Factory):
     import CHECLabPy.waveform_reducers
     subclasses = Factory.child_subclasses(WaveformReducer)
+    subclass_names = [c.__name__ for c in subclasses]
+
+
+class SpectrumFitterFactory(Factory):
+    import CHECLabPy.spectrum_fitters
+    subclasses = Factory.child_subclasses(SpectrumFitter)
     subclass_names = [c.__name__ for c in subclasses]

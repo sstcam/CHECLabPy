@@ -635,6 +635,7 @@ class DL1Reader(HDFStoreReader):
         self.store = pd.HDFStore(
             path, mode='r', complevel=9, complib='blosc:blosclz'
         )
+        self.path = path
         self.key = 'data'
         self._monitor = None
 
