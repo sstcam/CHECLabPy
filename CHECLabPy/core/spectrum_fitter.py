@@ -274,7 +274,7 @@ class SpectrumFitter:
         self.prepare_params(self.p0, limits, fix)
 
         m0 = iminuit.Minuit(self.minimize_function, **self.p0, **limits, **fix,
-                            print_level=0, pedantic=False, throw_nan=False,
+                            print_level=0, pedantic=False, throw_nan=True,
                             forced_parameters=self.coeff_names)
         m0.migrad()
 

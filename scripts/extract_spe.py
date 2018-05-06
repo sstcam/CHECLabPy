@@ -8,10 +8,11 @@ from argparse import ArgumentDefaultsHelpFormatter as Formatter
 from functools import partial
 import numpy as np
 import pandas as pd
-from tqdm import trange
+from tqdm import tqdm, trange
 from multiprocessing import Pool, Manager
 from CHECLabPy.core.io import DL1Reader
 from CHECLabPy.core.factory import SpectrumFitterFactory
+from CHECLabPy.plotting.spe import SpectrumFitPlotter
 
 
 class SpectrumFitProcessor:
@@ -31,7 +32,8 @@ class SpectrumFitProcessor:
         self.n_pixels = readers[0].n_pixels
         self.pixels = []
         self.charges = []
-        for reader in readers:
+        desc = "Obtaining charge columns from readers"
+        for reader in tqdm(readers, desc=desc):
             pixel, charge = reader.select_columns(['pixel', 'charge'])
             self.pixels.append(pixel.values)
             self.charges.append(charge.values)
@@ -81,10 +83,11 @@ class SpectrumFitProcessor:
         self.coeff[pixel] = coeff
 
         initial = self.fitter.p0.copy()
+        self.fitter.coeff = initial
         initial['pixel'] = pixel
-        initial['chi2'] = np.nan
-        initial['rchi2'] = np.nan
-        initial['p_value'] = np.nan
+        initial['chi2'] = self.fitter.chi2
+        initial['rchi2'] = self.fitter.reduced_chi2
+        initial['p_value'] = self.fitter.p_value
         self.initial[pixel] = initial
 
     def get_pixel_charges(self, pixel):
@@ -114,6 +117,7 @@ class SpectrumFitProcessor:
         -------
         ndarray
         """
+        assert (pixel < self.n_pixels) & (pixel >= 0)
         return self.charges[reader_i][self.pixels[reader_i] == pixel]
 
     def process(self):
@@ -186,9 +190,10 @@ class SpectrumFitProcessor:
         coeff['p_value'] = self.fitter.p_value
 
         initial = self.fitter.p0.copy()
-        initial['chi2'] = np.nan
-        initial['rchi2'] = np.nan
-        initial['p_value'] = np.nan
+        self.fitter.coeff = initial
+        initial['chi2'] = self.fitter.chi2
+        initial['rchi2'] = self.fitter.reduced_chi2
+        initial['p_value'] = self.fitter.p_value
 
         df_coeff = pd.DataFrame(list(coeff.values()))
         df_initial = pd.DataFrame(list(initial.values()))
@@ -211,17 +216,43 @@ def main():
                         default='GentileFitter',
                         choices=SpectrumFitterFactory.subclass_names,
                         help='SpectrumFitter to use')
+    parser.add_argument('-p', '--pixel', dest='plot_pixel', action='store',
+                        default=None, type=int,
+                        help='Enter plot mode, and plot the spectrum and fit '
+                             'for the pixel specified. "-1" speciefies the '
+                             'entire camera')
     args = parser.parse_args()
 
     input_paths = args.input_paths
     output_path = args.output_path
     fitter_str = args.fitter
+    plot_pixel = args.plot_pixel
 
     readers = [DL1Reader(path) for path in input_paths]
     kwargs = dict(product_name=fitter_str, n_illuminations=len(readers))
     fitter = SpectrumFitterFactory.produce(**kwargs)
 
     fit_processor = SpectrumFitProcessor(fitter, *readers)
+    if plot_pixel is not None:
+        p_fit = SpectrumFitPlotter()
+        if plot_pixel == -1:
+            charges = fit_processor.charges
+            p_fit.plot_from_fitter(fitter, charges)
+        else:
+            charges = fit_processor.get_pixel_charges(plot_pixel)
+            p_fit.plot_from_fitter(fitter, charges)
+
+        if not output_path:
+            name = '_spe_fit_p{}.pdf'.format(plot_pixel)
+            if len(input_paths) == 1:
+                output_path = input_paths[0].replace('_dl1.h5', name)
+            else:
+                output_dir = os.path.dirname(input_paths[0])
+                output_path = os.path.join(output_dir, name)
+
+        p_fit.save(output_path)
+        exit()
+
     # fit_processor.process()
     fit_processor.multiprocess()
 
@@ -248,122 +279,6 @@ def main():
 
         # TODO: metadata & mapping
 
-    # embed()
-
-    # pixel, charge = reader.select_columns(['pixel', 'charge'])
-    # # df = pd.DataFrame(dict(pixel=pixel, charge=charge))
-    #
-    # groupby = df.groupby('pixel')
-    # n_pixels = reader.n_pixels
-    # desc = "Fitting pixels"
-    # # for pixel, df_group in tqdm(groupby, total=n_pixels, desc=desc):
-    # #     pixel_charge = df_group['charge'].values
-    # #     fitter.apply(pixel_charge)
-    #
-    # for p in trange(n_pixels, desc=desc):
-    #     pixel_charge = charge[pixel == p]
-    #     fitter.apply(pixel_charge)
-    #     # d = fitter.coeff.copy()
-    #     # d['pixel'] = d
-
-
-
-    # plt.plot(fitter.between, fitter.hist[0])
-    # plt.plot(fitter.fit_x, fitter.fit[0])
-    # fitter.coeff = fitter.initial
-    # plt.plot(fitter.fit_x, fitter.fit[0])
-    # plt.show()
-    #
-    # fit_processor(897)
-    # fitter = fit_processor.fitter
-    # fig_fit = plt.figure(figsize=(13, 6))
-    # fig_fit.suptitle("Single Fit")
-    # ax = plt.subplot2grid((3, 2), (0, 0), rowspan=3)
-    # ax_t = plt.subplot2grid((3, 2), (0, 1), rowspan=3)
-    # x = np.linspace(fitter.range[0], fitter.range[1], 1000)
-    # hist = fitter.hist_summed
-    # edges = fitter.edges
-    # between = fitter.between
-    # coeff = fitter.coeff.copy()
-    # coeffl = fitter.coeff_names.copy()
-    # initial = fitter.p0.copy()
-    # fit = fitter.get_fit_summed(x, **coeff)
-    # init = fitter.get_fit_summed(x, **initial)
-    # rc2 = fitter.reduced_chi2
-    # pval = fitter.p_value
-    # ax.hist(between, bins=edges, weights=hist, histtype='step', label="Hist")
-    # ax.plot(x, fit, label="Fit")
-    # ax.plot(x, init, label="Initial")
-    # ax.legend(loc=1, frameon=True, fancybox=True, framealpha=0.7)
-    # ax_t.axis('off')
-    # td = [[initial[i], '%.3f' % coeff[i]] for i in coeffl]
-    # td.append(["", '%.3g' % rc2])
-    # td.append(["", '%.3g' % pval])
-    # tr = coeffl
-    # tr.append("Reduced Chi^2")
-    # tr.append("P-Value")
-    # tc = ['Initial', 'Fit']
-    # table = ax_t.table(cellText=td, rowLabels=tr, colLabels=tc, loc='center')
-    # table.set_fontsize(6)
-    # plt.show()
-
-        # t_cpu = 0
-        # start_time = 0
-        # desc = "Processing events"
-        # for waveforms in tqdm(reader, total=n_events, desc=desc):
-        #     iev = reader.index
-        #
-        #     t_tack = reader.current_tack
-        #     t_cpu_sec = reader.current_cpu_s
-        #     t_cpu_ns = reader.current_cpu_ns
-        #     t_cpu = pd.to_datetime(
-        #         np.int64(t_cpu_sec * 1E9) + np.int64(t_cpu_ns),
-        #         unit='ns'
-        #     )
-        #     fci = reader.first_cell_ids
-        #
-        #     if not start_time:
-        #         start_time = t_cpu
-        #
-        #     waveforms_bs = baseline_subtractor.subtract(waveforms)
-        #     bs = baseline_subtractor.baseline
-        #
-        #     params = reducer.process(waveforms_bs)
-        #
-        #     df_ev = pd.DataFrame(dict(
-        #         iev=iev,
-        #         pixel=pixel_array,
-        #         first_cell_id=fci,
-        #         t_cpu=t_cpu,
-        #         t_tack=t_tack,
-        #         baseline_subtracted=bs,
-        #         **params
-        #     ))
-        #     writer.append_event(df_ev)
-        #
-        # sn_dict = {}
-        # for tm in range(n_modules):
-        #     sn_dict['TM{:02d}_SN'.format(tm)] = reader.get_sn(tm)
-        #
-        # metadata = dict(
-        #     source="CHECLabPy",
-        #     date_generated=pd.datetime.now(),
-        #     input_path=input_path,
-        #     n_events=n_events,
-        #     n_modules=n_modules,
-        #     n_pixels=n_pixels,
-        #     n_samples=n_samples,
-        #     n_cells=n_cells,
-        #     start_time=start_time,
-        #     end_time=t_cpu,
-        #     camera_version=camera_version,
-        #     reducer=reducer.__class__.__name__,
-        #     configuration=config_string,
-        #     **sn_dict
-        # )
-        #
-        # writer.add_metadata(**metadata)
-        # writer.add_mapping(mapping)
 
 if __name__ == '__main__':
     main()

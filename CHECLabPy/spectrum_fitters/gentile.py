@@ -19,7 +19,7 @@ class GentileFitter(SpectrumFitter):
         super().__init__(n_illuminations)
 
         self.nbins = 100
-        self.range = [-50, 150]
+        self.range = [-40, 150]
 
         self.add_parameter("norm", None, 0, 100000, fix=True, multi=True)
         self.add_parameter("eped", 0, -10, 10)
@@ -27,8 +27,8 @@ class GentileFitter(SpectrumFitter):
         self.add_parameter("spe", 38, 15, 40)
         self.add_parameter("spe_sigma", 2, 2, 20)
         self.add_parameter("lambda_", 0.7, 0.1, 3, multi=True)
-        self.add_parameter("opct", 0.4, 0, 0.8)
-        self.add_parameter("pap", 0.09, 0, 0.8)
+        self.add_parameter("opct", 0.4, 0.01, 0.8)
+        self.add_parameter("pap", 0.09, 0.01, 0.8)
         self.add_parameter("dap1", 0.5, 0, 0.8)
         self.add_parameter("dap2", 0.5, 0, 0.8)
 
