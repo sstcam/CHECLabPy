@@ -8,15 +8,17 @@ from argparse import ArgumentDefaultsHelpFormatter as Formatter
 from functools import partial
 import numpy as np
 import pandas as pd
+from pandas.errors import PerformanceWarning
 from tqdm import tqdm, trange
 from multiprocessing import Pool, Manager
+import warnings
 from CHECLabPy.core.io import DL1Reader
 from CHECLabPy.core.factory import SpectrumFitterFactory
 from CHECLabPy.plotting.spe import SpectrumFitPlotter
 
 
 class SpectrumFitProcessor:
-    def __init__(self, fitter, *readers):
+    def __init__(self, fitter, *readers, dead_pixels=None):
         """
         Processes the spectrum to obtain the fit parameters for each pixel,
         utilising all cpu cores via the multiprocessing package.
@@ -26,10 +28,13 @@ class SpectrumFitProcessor:
         fitter : `CHECLabPy.core.spectrum_fitter.SpectrumFitter`
         readers : list[`CHECLabPy.core.io.DL1Reader`]
             The readers for each SPE illumination
+        dead_pixels : list
+            List of dead pixels to skip
         """
         self.fitter = fitter
+        self.dead_pixels = dead_pixels if dead_pixels is not None else []
         self.n_readers = len(readers)
-        self.n_pixels = readers[0].n_pixels
+        self.n_pixels = 1#readers[0].n_pixels
         self.pixels = []
         self.charges = []
         desc = "Obtaining charge columns from readers"
@@ -59,6 +64,8 @@ class SpectrumFitProcessor:
         ----------
         pixel : int
         """
+        if pixel in self.dead_pixels:
+            return
         pixel_charges = self.get_pixel_charges(pixel)
         self.fitter.apply(*pixel_charges)
 
@@ -270,14 +277,29 @@ def main():
         df_coeff, df_initial, df_array = fit_processor.get_df_result()
         store['coeff_pixel'] = df_coeff
         store['initial_pixel'] = df_initial
-        store['array_pixel'] = df_array
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', PerformanceWarning)
+            store['array_pixel'] = df_array
 
         df_coeff, df_initial, df_array = fit_processor.get_df_result_camera()
         store['coeff_camera'] = df_coeff
         store['initial_camera'] = df_initial
-        store['array_camera'] = df_array
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', PerformanceWarning)
+            store['array_camera'] = df_array
 
-        # TODO: metadata & mapping
+        metadata = dict(
+            files=input_paths,
+            fitter=fitter.__class__.__name__,
+            n_illuminations=fit_processor.n_readers,
+            n_pixels=fit_processor.n_pixels
+        )
+        store['metadata'] = pd.DataFrame()
+        store.get_storer('metadata').attrs.metadata = metadata
+
+        store['mapping'] = readers[0].mapping
+        mapping_meta = readers[0].mapping.metadata
+        store.get_storer('mapping').attrs.metadata = mapping_meta
 
 
 if __name__ == '__main__':
