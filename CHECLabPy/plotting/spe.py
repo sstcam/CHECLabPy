@@ -52,3 +52,31 @@ class SpectrumFitPlotter(Plotter):
 
         self.plot(hist, edges, between, x, fit, initial, coeff, coeff_initial,
                   fitter_name, n_illuminations)
+
+    def plot_from_df_pixel(self, df_coeff, df_inital, df_array, meta, pixel):
+        fitter_name = meta['fitter']
+        n_illuminations = meta['n_illuminations']
+        hist = df_array.loc[pixel, 'hist']
+        edges = df_array.loc[pixel, 'edges']
+        between = df_array.loc[pixel, 'between']
+        fit_x = df_array.loc[pixel, 'fit_x']
+        fit = df_array.loc[pixel, 'fit']
+        initial = df_array.loc[pixel, 'initial']
+        coeff = df_coeff.loc[pixel].to_dict()
+        coeff_initial = df_inital.loc[pixel].to_dict()
+        self.plot(hist, edges, between, fit_x, fit, initial, coeff,
+                  coeff_initial, fitter_name, n_illuminations)
+
+    def plot_from_df_camera(self, df_coeff, df_inital, df_array, meta):
+        fitter_name = meta['fitter']
+        n_illuminations = meta['n_illuminations']
+        hist = df_array.loc[0, 'hist']
+        edges = df_array.loc[0, 'edges']
+        between = df_array.loc[0, 'between']
+        fit_x = df_array.loc[0, 'fit_x']
+        fit = df_array.loc[0, 'fit']
+        initial = df_array.loc[0, 'initial']
+        coeff = df_coeff.loc[0].to_dict()
+        coeff_initial = df_inital.loc[0].to_dict()
+        self.plot(hist, edges, between, fit_x, fit, initial, coeff,
+                  coeff_initial, fitter_name, n_illuminations)

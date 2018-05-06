@@ -34,7 +34,7 @@ class SpectrumFitProcessor:
         self.fitter = fitter
         self.dead_pixels = dead_pixels if dead_pixels is not None else []
         self.n_readers = len(readers)
-        self.n_pixels = 1#readers[0].n_pixels
+        self.n_pixels = readers[0].n_pixels
         self.pixels = []
         self.charges = []
         desc = "Obtaining charge columns from readers"
@@ -202,9 +202,9 @@ class SpectrumFitProcessor:
         initial['rchi2'] = self.fitter.reduced_chi2
         initial['p_value'] = self.fitter.p_value
 
-        df_coeff = pd.DataFrame(list(coeff.values()))
-        df_initial = pd.DataFrame(list(initial.values()))
-        df_array = pd.DataFrame(list(array.values()))
+        df_coeff = pd.DataFrame([coeff])
+        df_initial = pd.DataFrame([initial])
+        df_array = pd.DataFrame([array])
         return df_coeff, df_initial, df_array
 
 
