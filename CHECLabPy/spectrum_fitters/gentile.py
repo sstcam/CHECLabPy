@@ -23,14 +23,13 @@ class GentileFitter(SpectrumFitter):
 
         self.add_parameter("norm", None, 0, 100000, fix=True, multi=True)
         self.add_parameter("eped", 0, -10, 10)
-        self.add_parameter("eped_sigma", 10, 2, 20)
-        self.add_parameter("spe", 38, 15, 40)
+        self.add_parameter("eped_sigma", 9, 2, 20)
+        self.add_parameter("spe", 25, 15, 40)
         self.add_parameter("spe_sigma", 2, 2, 20)
         self.add_parameter("lambda_", 0.7, 0.1, 3, multi=True)
         self.add_parameter("opct", 0.4, 0.01, 0.8)
         self.add_parameter("pap", 0.09, 0.01, 0.8)
-        self.add_parameter("dap1", 0.5, 0, 0.8)
-        self.add_parameter("dap2", 0.5, 0, 0.8)
+        self.add_parameter("dap", 0.5, 0, 0.8)
 
     def prepare_params(self, p0, limits, fix):
         for i in range(self.n_illuminations):
@@ -121,7 +120,7 @@ def pedestal_signal(x, norm, eped, eped_sigma, lambda_):
 
 @jit
 def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
-              pap, dap1, dap2):
+              pap, dap):
     """
     Obtain the signal provided by photoelectrons in the pulse spectrum.
 
@@ -150,10 +149,8 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
         Optical crosstalk probability
     pap : float
         Afterpulse probability
-    dap1 : float
+    dap : float
         The first distance of the after-pulse Gaussians from the main peaks
-    dap2 : float
-        The second distance of the after-pulse Gaussians from the main peaks
 
     Returns
     -------
@@ -169,15 +166,6 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     pct = np.sum(pj * np.power(1-opct, J) * np.power(opct, N - J) * BINOM, 1)
 
     sap = spe_sigma
-    d1ap = dap1
-    d2ap = dap2  # 2*dap
-    # if d1ap > d2ap:
-    #     d1ap = 2*dap
-    #     d2ap = dap
-
-    # pap_ap1 = pct * pap
-    # pap_ap2 = pct * pap ** 2
-    # pap_noap = pct - pap_ap1 - pap_ap2
 
     papk = np.power(1 - pap, N[:, 0])
     p0ap = pct * papk
@@ -188,16 +176,14 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     ap_sigma = np.sqrt(k * sap ** 2 + eped_sigma ** 2)
 
     signal = p0ap[k] * _normal_pdf(x, eped + k * spe, pe_sigma)
-    signal += pap1[k] * _normal_pdf(x, eped + k * spe * (1.0-d1ap), ap_sigma)
-    signal += pap2[k] * _normal_pdf(x, eped + k * spe * (1.0-d2ap), ap_sigma)
-
+    signal += pap1[k] * _normal_pdf(x, eped + k * spe * (1.0-dap), ap_sigma)
     signal *= norm
 
     return signal
 
 
 def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
-                 pap, dap1, dap2, **kwargs):
+                 pap, dap, **kwargs):
     """
     Fit for the SPE spectrum of a MAPM
 
@@ -221,10 +207,8 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
         Optical crosstalk probability
     pap : float
         Afterpulse probability
-    dap1 : float
+    dap : float
         The first distance of the after-pulse Gaussians from the main peaks
-    dap2 : float
-        The second distance of the after-pulse Gaussians from the main peaks
 
     Returns
     -------
@@ -238,8 +222,7 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
 
     # Obtain pe signal
 
-    params = [norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct, pap,
-              dap1, dap2]
+    params = [norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct, pap, dap]
     pe_s = pe_signal(K, x[None, :], *params).sum(0)
 
     signal = ped_s + pe_s

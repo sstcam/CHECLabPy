@@ -50,10 +50,7 @@ class SPEHist(Plotter):
             mean = np.mean(values)
             std = np.std(values)
             label = "Mean = {:.3g}, Stddev = {:.3g}".format(mean, std)
-            try:
-                self.ax.hist(values, bins='fd', label=label)
-            except ValueError:
-                self.ax.hist(values, bins='doane', label=label)
+            self.ax.hist(values, bins='scott', label=label)
             self.add_legend()
             self.ax.set_title(c)
             output_path = os.path.join(d, "hist_{}.pdf".format(c))
