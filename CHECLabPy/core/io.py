@@ -303,7 +303,7 @@ class MonitorWriter:
         df = self.empty_df.copy()
         with open(monitor_path) as file:
             for line in file:
-                if line:
+                if line and line != '\n':
                     try:
                         data = line.replace('\n', '').split(" ")
 
@@ -312,7 +312,7 @@ class MonitorWriter:
                             format="%Y-%m-%d %H:%M:%S:%f"
                         )
                         # TODO: store monitor ASCII with UTC timestamps
-                        t_cpu -= pd.Timedelta(1, unit='h')
+                        # t_cpu = t_cpu.tz_localize("Europe/Berlin").tz_convert("UTC").tz_localize(None)
 
                         if 'Monitoring Event Done' in line:
                             if not start_time:
@@ -358,15 +358,17 @@ class MonitorWriter:
             print("WARNING: events are >5 minutes before start of monitor "
                   "file, are you sure it is the correct monitor file?")
             self.first = False
-        if self.t_delta_max < delta:
-            self.t_delta_max = delta
 
         # Get next monitor event until the times match
         while (t_cpu_data > t_cpu_next_monitor) and not self.eof:
             try:
                 self.monitor_ev = self.next_monitor_ev.copy()
                 self.next_monitor_ev = next(self.monitor_it)
+                t_cpu_current_monitor = self.monitor_ev.loc[0, 't_cpu']
                 t_cpu_next_monitor = self.next_monitor_ev.loc[0, 't_cpu']
+                monitor_delta = t_cpu_next_monitor - t_cpu_current_monitor
+                if self.t_delta_max < monitor_delta:
+                    self.t_delta_max = monitor_delta
             except StopIteration:
                 self.eof = True
                 # Use last monitor event for t_delta_max seconds
