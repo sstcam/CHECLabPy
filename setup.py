@@ -19,6 +19,8 @@ setup(
         'matplotlib',
         'tqdm',
         'pandas>=0.21.0',
+        'iminuit',
+        'numba',
     ],
     setup_requires=['pytest-runner', ],
     tests_require=['pytest', ],
