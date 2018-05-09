@@ -69,7 +69,7 @@ class CameraPlotter(Plotter):
 
 
 class CameraImage(Plotter):
-    def __init__(self, xpix, ypix, size, ax=None, talk=False):
+    def __init__(self, xpix, ypix, size, **kwargs):
         """
         Create a camera-image plot
 
@@ -81,12 +81,10 @@ class CameraImage(Plotter):
             The Y positions of the pixels/superpixels/TMs
         size : float
             The size of the pixels/superpixels/TMs
-        ax : `matplotlib.axes.Axes`
-            Optionally place the plot on a pre-existing axes
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
         """
-        super().__init__(ax=ax, talk=talk)
+        super().__init__(**kwargs)
 
         self._image = None
         self._mapping = None
@@ -236,7 +234,7 @@ class CameraImage(Plotter):
             print("Cannot annotate, no mapping attached to class")
 
     @classmethod
-    def from_mapping(cls, mapping, talk=False):
+    def from_mapping(cls, mapping, **kwargs):
         """
         Generate the class from a CHECLabPy mapping dataframe
 
@@ -251,8 +249,8 @@ class CameraImage(Plotter):
             CHECLabPy.io.ReaderR1.mapping
             CHECLabPy.io.DL1Reader.mapping
             CHECLabPy.utils.mapping.get_clp_mapping_from_tc_mapping
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
 
         Returns
         -------
@@ -262,19 +260,19 @@ class CameraImage(Plotter):
         xpix = mapping['xpix'].values
         ypix = mapping['ypix'].values
         size = mapping.metadata['size']
-        image = cls(xpix, ypix, size, talk=talk)
+        image = cls(xpix, ypix, size, **kwargs)
         image._mapping = mapping
         return image
 
     @classmethod
-    def from_tc_mapping(cls, tc_mapping, talk=False):
+    def from_tc_mapping(cls, tc_mapping, **kwargs):
         """
         Generate the class using the TargetCalib Mapping Class
         Parameters
         ----------
         tc_mapping : `target_calib.Mapping`
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
 
         Returns
         -------
@@ -282,10 +280,10 @@ class CameraImage(Plotter):
 
         """
         mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
-        return cls.from_mapping(mapping, talk=talk)
+        return cls.from_mapping(mapping, **kwargs)
 
     @classmethod
-    def from_camera_version(cls, camera_version, single=False, talk=False):
+    def from_camera_version(cls, camera_version, single=False, **kwargs):
         """
         Generate the class using the camera version (required TargetCalib)
 
@@ -295,8 +293,8 @@ class CameraImage(Plotter):
             Version of the camera (e.g. "1.0.1" corresponds to CHEC-S)
         single : bool
             Designate if it is just a single module you wish to plot
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
 
         Returns
         -------
@@ -306,11 +304,11 @@ class CameraImage(Plotter):
         from target_calib import CameraConfiguration
         config = CameraConfiguration(camera_version)
         tc_mapping = config.GetMapping(single)
-        return cls.from_tc_mapping(tc_mapping, talk=talk)
+        return cls.from_tc_mapping(tc_mapping, **kwargs)
 
 
 class CameraImageImshow(Plotter):
-    def __init__(self, row, col, n_rows, n_cols, ax=None, talk=False):
+    def __init__(self, row, col, n_rows, n_cols, **kwargs):
         """
         Create a camera-image plot using imshow (essentially a 2D histogram,
         therefore missing module gaps)
@@ -325,12 +323,10 @@ class CameraImageImshow(Plotter):
             The number of rows of pixel/superpixel/TM on the camera
         n_cols : int
             The number of rows of pixel/superpixel/TM on the camera
-        ax : `matplotlib.axes.Axes`
-            Optionally place the plot on a pre-existing axes
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
         """
-        super().__init__(ax=ax, talk=talk)
+        super().__init__(**kwargs)
 
         self._image = None
         self._mapping = None
@@ -485,7 +481,7 @@ class CameraImageImshow(Plotter):
             print("Cannot annotate, no mapping attached to class")
 
     @classmethod
-    def from_mapping(cls, mapping, talk=False):
+    def from_mapping(cls, mapping, **kwargs):
         """
         Generate the class using a CHECLabPy mapping dataframe
 
@@ -500,8 +496,8 @@ class CameraImageImshow(Plotter):
             CHECLabPy.io.ReaderR1.mapping
             CHECLabPy.io.DL1Reader.mapping
             CHECLabPy.utils.mapping.get_clp_mapping_from_tc_mapping
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
 
         Returns
         -------
@@ -512,19 +508,19 @@ class CameraImageImshow(Plotter):
         col = mapping['col'].values
         n_rows = mapping.metadata['n_rows']
         n_cols = mapping.metadata['n_columns']
-        image = cls(row, col, n_rows, n_cols, talk=talk)
+        image = cls(row, col, n_rows, n_cols, **kwargs)
         image._mapping = mapping
         return image
 
     @classmethod
-    def from_tc_mapping(cls, tc_mapping, talk=False):
+    def from_tc_mapping(cls, tc_mapping, **kwargs):
         """
         Generate the class using the TargetCalib Mapping Class
         Parameters
         ----------
         tc_mapping : `target_calib.Mapping`
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
 
         Returns
         -------
@@ -532,10 +528,10 @@ class CameraImageImshow(Plotter):
 
         """
         mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
-        return cls.from_mapping(mapping, talk=talk)
+        return cls.from_mapping(mapping, **kwargs)
 
     @classmethod
-    def from_camera_version(cls, camera_version, single=False, talk=False):
+    def from_camera_version(cls, camera_version, single=False, **kwargs):
         """
         Generate the class using the camera version (required TargetCalib)
 
@@ -545,8 +541,8 @@ class CameraImageImshow(Plotter):
             Version of the camera (e.g. "1.0.1" corresponds to CHEC-S)
         single : bool
             Designate if it is just a single module you wish to plot
-        talk : bool
-            Plot with presentation formatting
+        kwargs
+            Arguments passed to `CHECLabPy.plottong.setup.Plotter`
 
         Returns
         -------
@@ -556,4 +552,4 @@ class CameraImageImshow(Plotter):
         from target_calib import CameraConfiguration
         config = CameraConfiguration(camera_version)
         tc_mapping = config.GetMapping(single)
-        return cls.from_tc_mapping(tc_mapping, talk=talk)
+        return cls.from_tc_mapping(tc_mapping, **kwargs)
