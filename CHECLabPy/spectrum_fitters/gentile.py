@@ -6,7 +6,7 @@ from CHECLabPy.core.spectrum_fitter import SpectrumFitter
 
 
 class GentileFitter(SpectrumFitter):
-    def __init__(self, n_illuminations):
+    def __init__(self, n_illuminations, config_path=None):
         """
         SpectrumFitter which uses the SiPM fitting formula from Gentile 2010
         http://adsabs.harvard.edu/abs/2010arXiv1006.3263G
@@ -16,7 +16,7 @@ class GentileFitter(SpectrumFitter):
         n_illuminations : int
             Number of illuminations to fit simultaneously
         """
-        super().__init__(n_illuminations)
+        super().__init__(n_illuminations, config_path)
 
         self.nbins = 100
         self.range = [-40, 150]
@@ -25,7 +25,7 @@ class GentileFitter(SpectrumFitter):
         self.add_parameter("eped", 0, -10, 10)
         self.add_parameter("eped_sigma", 9, 2, 20)
         self.add_parameter("spe", 25, 15, 40)
-        self.add_parameter("spe_sigma", 2, 2, 20)
+        self.add_parameter("spe_sigma", 2, 1, 20)
         self.add_parameter("lambda_", 0.7, 0.1, 3, multi=True)
         self.add_parameter("opct", 0.4, 0.01, 0.8)
         self.add_parameter("pap", 0.09, 0.01, 0.8)

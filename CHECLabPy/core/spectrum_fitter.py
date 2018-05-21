@@ -3,10 +3,18 @@ import iminuit
 import numpy as np
 from scipy.stats.distributions import poisson
 from scipy.stats import chisquare
+import yaml
 
 
-class SpectrumFitter:
-    def __init__(self, n_illuminations):
+class SpectrumFitterMeta(type):
+    def __call__(cls, *args, **kwargs):
+        obj = type.__call__(cls, *args, **kwargs)
+        obj.__post_init__()
+        return obj
+
+
+class SpectrumFitter(metaclass=SpectrumFitterMeta):
+    def __init__(self, n_illuminations, config_path=None):
         """
         Base class for fitters of Single-Photoelectron spectra. Built to
         flexibly handle any number of illuminations simultaneously.
@@ -15,6 +23,8 @@ class SpectrumFitter:
         ----------
         n_illuminations : int
             Number of illuminations to fit simultaneously
+        config_path : str
+            Path to JAML config file
         """
         self.hist = None
         self.edges = None
@@ -32,6 +42,11 @@ class SpectrumFitter:
         self.fix = dict()
 
         self.n_illuminations = n_illuminations
+        self.config_path = config_path
+
+    def __post_init__(self):
+        if self.config_path:
+            self.load_config(self.config_path)
 
     @property
     def fit_x(self):
@@ -129,7 +144,7 @@ class SpectrumFitter:
         f = f[b]
         return chisquare(h, f, self.n_coeff).pvalue
 
-    def add_parameter(self, name, inital, lower, upper,
+    def add_parameter(self, name, initial, lower, upper,
                       fix=False, multi=False):
         """
         Add a new parameter for this particular fit function
@@ -138,7 +153,7 @@ class SpectrumFitter:
         ----------
         name : str
             Name of the parameter
-        inital : float
+        initial : float
             Initial value for the parameter
         lower : float
             Lower limit for the parameter
@@ -152,7 +167,7 @@ class SpectrumFitter:
         """
         if not multi:
             self.coeff_names.append(name)
-            self.initial[name] = inital
+            self.initial[name] = initial
             self.limits["limit_" + name] = (lower, upper)
             self.fix["fix_" + name] = fix
         else:
@@ -160,11 +175,79 @@ class SpectrumFitter:
             for i in range(self.n_illuminations):
                 name_i = name + str(i)
                 self.coeff_names.append(name_i)
-                self.initial[name_i] = inital
+                self.initial[name_i] = initial
                 self.limits["limit_" + name_i] = (lower, upper)
                 self.fix["fix_" + name_i] = fix
         ds = "minimize_function(" + ", ".join(self.coeff_names) + ")"
         self.minimize_function.__func__.__doc__ = ds
+
+    def load_config(self, path):
+        """
+        Load a YAML configuration file to set initial fitting parameters
+
+        Parameters
+        ----------
+        path : str
+        """
+        print("Loading SpectrumFitter configuration from: {}".format(path))
+        with open(path, 'r') as file:
+            d = yaml.safe_load(file)
+            if d is None:
+                return
+            self.nbins = d.pop('nbins', self.nbins)
+            self.range = d.pop('range', self.range)
+            for c in self.coeff_names:
+                if 'initial' in d:
+                    ini = c
+                    self.initial[ini] = d['initial'].pop(c, self.initial[ini])
+                if 'limits' in d:
+                    lim = "limit_" + c
+                    list_ = d['limits'].pop(c, self.limits[lim])
+                    self.limits[lim] = tuple(list_)
+                if 'fix' in d:
+                    fix = "fix_" + c
+                    self.fix[fix] = d['fix'].pop(c, self.fix[fix])
+            if 'initial' in d and not d['initial']:
+                d.pop('initial')
+            if 'limits' in d and not d['limits']:
+                d.pop('limits')
+            if 'fix' in d and not d['fix']:
+                d.pop('fix')
+            if d:
+                print("WARNING: Unused SpectrumFitter config parameters:")
+                print(d)
+
+    def save_config(self, path):
+        """
+        Save the configuration of the fit. If the fit has already been
+        performed, the fit coefficients will be included as the initial
+        coefficients
+
+        Parameters
+        ----------
+        path : str
+            Path to save the configuration file to
+        """
+        print("Writing SpectrumFitter configuration to: {}".format(path))
+        initial = dict()
+        limits = dict()
+        fix = dict()
+        coeff_dict = self.coeff if self.coeff else self.initial
+        for c, val in coeff_dict.items():
+            initial[c] = val
+        for c, val in self.limits.items():
+            limits[c.replace("limit_", "")] = val
+        for c, val in self.fix.items():
+            fix[c.replace("fix_", "")] = val
+        data = dict(
+            nbins=self.nbins,
+            range=self.range,
+            initial=initial,
+            limits=limits,
+            fix=fix
+        )
+        with open(path, 'w') as outfile:
+            yaml.safe_dump(data, outfile, default_flow_style=False)
 
     def apply(self, *spectrum):
         """

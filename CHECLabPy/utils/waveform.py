@@ -18,7 +18,6 @@ class BaselineSubtractor:
         self.n_base_samples = n_base_samples
         self.iev = 0
 
-        print("Creating initial baseline from first {} events".format(n_base))
         self.baseline_waveforms = np.zeros((n_base, n_pixels, n_base_samples))
         for waveforms in source:
             ev = source.index
@@ -26,7 +25,6 @@ class BaselineSubtractor:
                 break
             self.baseline_waveforms[ev] = waveforms[:, :n_base_samples]
         self.baseline = np.mean(self.baseline_waveforms, axis=(0, 2))
-        print("Baseline Created")
 
     def update_baseline(self, waveforms):
         entry = self.iev % self.n_base
