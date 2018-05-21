@@ -45,6 +45,7 @@ class Factory:
 
     @classmethod
     def produce(cls, product_name, *args, **kwargs):
+        print("Obtaining {} from {}".format(product_name, cls.__name__))
         factory = cls()
         subclass_dict = dict(zip(factory.subclass_names, factory.subclasses))
 

@@ -42,7 +42,7 @@ def plot_from_coordinates():
     Plot directly with coordinates
     """
     from target_calib import CameraConfiguration
-    c = CameraConfiguration("1.0.1")
+    c = CameraConfiguration("1.1.0")
     m = c.GetMapping()
     xpix = np.array(m.GetXPixVector())
     ypix = np.array(m.GetYPixVector())
@@ -59,7 +59,7 @@ def plot_from_tc_mapping():
     Plot using the TargetCalib Mapping class
     """
     from target_calib import CameraConfiguration
-    c = CameraConfiguration("1.0.1")
+    c = CameraConfiguration("1.1.0")
     m = c.GetMapping()
     camera = CameraImage.from_tc_mapping(m)
     image = np.zeros(m.GetNPixels())
@@ -72,7 +72,7 @@ def plot_from_camera_version():
     """
     Plot by specifying a camera version (requires TargetCalib)
     """
-    camera_version = "1.0.1"
+    camera_version = "1.1.0"
     camera = CameraImage.from_camera_version(camera_version)
     image = np.zeros(2048)
     image[::2] = 1
@@ -84,7 +84,7 @@ def plot_from_camera_version_single_module():
     """
     Plot a single module by specifying a camera version (requires TargetCalib)
     """
-    camera_version = "1.0.1"
+    camera_version = "1.1.0"
     camera = CameraImage.from_camera_version(camera_version, True)
     image = np.zeros(64)
     image[::2] = 1
@@ -111,7 +111,7 @@ def plot_superpixel():
     Make a camera image plot for values that are per superpixel
     """
     from target_calib import CameraConfiguration
-    c = CameraConfiguration("1.0.1")
+    c = CameraConfiguration("1.1.0")
     m = c.GetMapping()
     df = get_superpixel_mapping(get_clp_mapping_from_tc_mapping(m))
     camera = CameraImage.from_mapping(df)
@@ -126,7 +126,7 @@ def plot_tm():
     Make a camera image plot for values that are per superpixel
     """
     from target_calib import CameraConfiguration
-    c = CameraConfiguration("1.0.1")
+    c = CameraConfiguration("1.1.0")
     m = c.GetMapping()
     df = get_tm_mapping(get_clp_mapping_from_tc_mapping(m))
     camera = CameraImage.from_mapping(df)
@@ -151,7 +151,7 @@ def plot_tm_edge_labels():
     """
     Annotate plot with the TM numbers on the edges
     """
-    camera_version = "1.0.1"
+    camera_version = "1.1.0"
     camera = CameraImage.from_camera_version(camera_version)
     pixels = np.arange(camera.n_pixels)
     camera.annotate_tm_edge_label()
@@ -162,7 +162,7 @@ def plot_tm_edge_labels_imshow():
     """
     Annotate plot with the TM numbers on the edges
     """
-    camera_version = "1.0.1"
+    camera_version = "1.1.0"
     camera = CameraImageImshow.from_camera_version(camera_version)
     pixels = np.arange(camera.n_pixels)
     camera.annotate_tm_edge_label()
@@ -173,7 +173,7 @@ def plot_with_limits():
     """
     Set the z-axis limits
     """
-    camera_version = "1.0.1"
+    camera_version = "1.1.0"
     camera = CameraImage.from_camera_version(camera_version)
     image = np.arange(2048)
     camera.add_colorbar()

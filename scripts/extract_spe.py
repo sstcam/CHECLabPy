@@ -223,6 +223,9 @@ def main():
                         default='GentileFitter',
                         choices=SpectrumFitterFactory.subclass_names,
                         help='SpectrumFitter to use')
+    parser.add_argument('-c', '--config', dest='config', action='store',
+                        default=None,
+                        help='Path to SpectrumFitter configuration YAML file')
     parser.add_argument('-p', '--pixel', dest='plot_pixel', action='store',
                         default=None, type=int,
                         help='Enter plot mode, and plot the spectrum and fit '
@@ -233,10 +236,15 @@ def main():
     input_paths = args.input_paths
     output_path = args.output_path
     fitter_str = args.fitter
+    config_path = args.config
     plot_pixel = args.plot_pixel
 
     readers = [DL1Reader(path) for path in input_paths]
-    kwargs = dict(product_name=fitter_str, n_illuminations=len(readers))
+    kwargs = dict(
+        product_name=fitter_str,
+        n_illuminations=len(readers),
+        config_path=config_path
+    )
     fitter = SpectrumFitterFactory.produce(**kwargs)
 
     fit_processor = SpectrumFitProcessor(fitter, *readers)

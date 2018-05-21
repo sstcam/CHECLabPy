@@ -69,8 +69,8 @@ class Plotter:
         # ax.yaxis.set_major_formatter(fmt)
         return fig, ax
 
-    def add_legend(self, loc="upper right"):
-        self.ax.legend(loc=loc)
+    def add_legend(self, loc="upper right", **kwargs):
+        self.ax.legend(loc=loc, **kwargs)
 
     @staticmethod
     def create_directory(directory):
