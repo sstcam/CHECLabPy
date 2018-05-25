@@ -65,6 +65,7 @@ def main():
             n_pixels=n_pixels,
             n_samples=n_samples,
             plot=args.plot,
+            mapping=mapping,
             **config
         )
         reducer = WaveformReducerFactory.produce(args.reducer, **kwargs)
