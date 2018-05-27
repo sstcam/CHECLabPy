@@ -21,6 +21,7 @@ setup(
         'pandas>=0.21.0',
         'iminuit',
         'numba',
+        'PyYAML'
     ],
     setup_requires=['pytest-runner', ],
     tests_require=['pytest', ],

@@ -10,12 +10,19 @@ def create_directory(directory):
             os.makedirs(directory)
 
 
-def read_runlist(path):
+def read_runlist_old(path):
     df = pd.read_csv(
         path, header=None, delimiter=' ', index_col=0, comment='#',
         names=['run', 'attenuation', 'illumination', 'n_events', 'fw'],
         dtype={'run': np.int32, 'attenuation': np.float32,
                'illumination': np.float32, 'n_events': np.int32, 'fw': str}
+    )
+    return df
+
+
+def read_runlist(path):
+    df = pd.read_csv(
+        path, delimiter=' ', index_col=0, comment='#'
     )
     return df
 
