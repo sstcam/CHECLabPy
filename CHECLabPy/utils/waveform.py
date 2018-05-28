@@ -107,3 +107,37 @@ def get_average_wf(source, t_shift):
 
     average_wf /= n
     return average_wf
+
+
+def obtain_dead_pixel_list_r1(source, threshold_percent=0.1, max_events=100):
+    """
+    From an R1 file, obtain a list of pixels that are considered dead as the
+    peak height of their average waveform is less that the threshold.
+
+    Parameters
+    ----------
+    source : `CHECLabPy.core.io.TIOReader`
+    threshold_percent : float
+        Percentage of the average height that should be used as a threshold
+        to define a dead pixel
+    max_events : int
+        Max number of events to loop over
+
+    Returns
+    -------
+    list
+    """
+    n_events = source.n_events if source.n_events < max_events else max_events
+    n_pixels = source.n_pixels
+    n_samples = source.n_samples
+    array = np.zeros((n_events, n_pixels, n_samples))
+    for waveforms in source:
+        iev = source.index
+        if iev >= n_events:
+            break
+        array[iev] = waveforms
+    avg_wf = np.mean(array, axis=0)
+    peak_height = np.max(avg_wf, axis=1)
+    dead = np.where(peak_height < peak_height.mean() * threshold_percent)[0]
+    print("Dead Pixels: {}".format(dead))
+    return dead

@@ -277,6 +277,10 @@ def main():
         else:
             output_dir = os.path.dirname(input_paths[0])
             output_path = os.path.join(output_dir, "spe.h5")
+    output_dir = os.path.dirname(output_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print("Created directory: {}".format(output_dir))
     if os.path.exists(output_path):
         os.remove(output_path)
 

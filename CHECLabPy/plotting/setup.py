@@ -26,7 +26,7 @@ class Plotter:
             "font.size": 10,
             "axes.titlesize": 10,
             "axes.labelsize": 10,
-            "legend.fontsize": 10,
+            "legend.fontsize": 8,
             "lines.markeredgewidth": 1
         }
         if talk:
