@@ -26,7 +26,7 @@ class GentileFitter(SpectrumFitter):
         self.add_parameter("eped_sigma", 9, 2, 20)
         self.add_parameter("spe", 25, 15, 40)
         self.add_parameter("spe_sigma", 2, 1, 20)
-        self.add_parameter("lambda_", 0.7, 0.1, 3, multi=True)
+        self.add_parameter("lambda_", 0.7, 0.001, 6, multi=True)
         self.add_parameter("opct", 0.4, 0.01, 0.8)
         self.add_parameter("pap", 0.09, 0.01, 0.8)
         self.add_parameter("dap", 0.5, 0, 0.8)

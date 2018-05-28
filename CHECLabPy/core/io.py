@@ -624,6 +624,22 @@ class HDFStoreReader(ABC):
         for df in self.store.select(self.key, chunksize=chunksize):
             yield df
 
+    def get_first_n_events(self, n_events):
+        """
+        Obtain the first N events from the DL1 file
+
+        Parameters
+        ----------
+        n_events : int
+
+        Returns
+        -------
+        df : `pandas.DataFrame`
+
+        """
+        n_rows = n_events * self.metadata['n_pixels']
+        return next(self.iterate_over_chunks(n_rows))
+
 
 class DL1Reader(HDFStoreReader):
     """
