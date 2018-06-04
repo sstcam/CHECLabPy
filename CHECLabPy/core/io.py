@@ -163,7 +163,7 @@ class DL1Writer:
         )
 
         if monitor_path:
-            self.monitor = MonitorWriter(monitor_path, self)
+            self.monitor = MonitorWriter(monitor_path, self.store)
 
     def __enter__(self):
         return self
@@ -213,10 +213,10 @@ class DL1Writer:
             self.df_list_n_bytes = 0
 
     def append_event(self, df_ev):
-        self.df_list.append(df_ev)
-        self.df_list_n_bytes += df_ev.memory_usage(index=True, deep=True).sum()
         if self.monitor:
             self.monitor.match_to_data_events(df_ev)
+        self.df_list.append(df_ev)
+        self.df_list_n_bytes += df_ev.memory_usage(index=True, deep=True).sum()
         if self.df_list_n_bytes >= 0.5E9:
             self._append_to_file()
 
@@ -250,8 +250,8 @@ class MonitorWriter:
     DL1 file
     """
 
-    def __init__(self, monitor_path, dl1_writer):
-        print("WARNING MonitorWriter assumes monitor timestamps are in "
+    def __init__(self, monitor_path, store):
+        print("WARNING: MonitorWriter assumes monitor timestamps are in "
               "MPIK time. This needs fixing once they have been converted "
               "to unix/UTC")
 
@@ -260,47 +260,63 @@ class MonitorWriter:
             FileNotFoundError("Cannot find monitor file: {}"
                               .format(monitor_path))
 
-        self.store = dl1_writer.store
+        self.store = store
 
-        self.supported = [
+        self.supported_camera = []
+        self.supported_tm = [
             "TM_T_PRI",
             "TM_T_AUX",
             "TM_T_PSU",
             "TM_T_SIPM"
         ]
+        self.supported_pixel = []
 
         self.metadata = {}
         self.n_bytes = 0
-        self.df_list = []
+        self.df_camera_list = []
+        self.df_tm_list = []
+        self.df_pixel_list = []
         self.df_list_n_bytes = 0
+        self.t_cpu_list = []
 
         self.n_modules = 32
         self.n_tmpix = 64
-        self.empty_df = pd.DataFrame(dict(
-            imon=0,
-            t_cpu=pd.to_datetime(0, unit='ns'),
-            module=np.arange(self.n_modules),
-            **dict.fromkeys(self.supported, np.nan)
-        ))
+        self.n_pixels = self.n_modules * self.n_tmpix
         self.first = True
         self.eof = False
         self.aeof = False
         self.t_delta_max = pd.Timedelta(0)
 
-        self.monitor_it = self._get_next_monitor_event(monitor_path)
-        try:
-            self.monitor_ev = next(self.monitor_it)
-        except StopIteration:
-            print("WARNING: No monitor events found in file")
-            self.monitor_ev = self.empty_df.copy()
-            self.eof = True
-        self.next_monitor_ev = self.monitor_ev.copy()
+        self._load_monitor_data(monitor_path)
+        self.t_delta_max = np.diff(self.t_cpu_list).max()
 
-    def _get_next_monitor_event(self, monitor_path):
+    def _get_new_dfs(self, imon, t_cpu):
+        df_camera = pd.DataFrame(dict(
+            imon=imon,
+            t_cpu=t_cpu,
+            idevice=0,
+            **dict.fromkeys(self.supported_camera, np.nan)
+        ), index=np.array([0]))
+        df_tm = pd.DataFrame(dict(
+            imon=imon,
+            t_cpu=t_cpu,
+            idevice=np.arange(self.n_modules),
+            **dict.fromkeys(self.supported_tm, np.nan)
+        ))
+        df_pixel = pd.DataFrame(dict(
+            imon=imon,
+            t_cpu=t_cpu,
+            idevice=np.arange(self.n_pixels),
+            **dict.fromkeys(self.supported_pixel, np.nan)
+        ))
+        return df_camera, df_tm, df_pixel
+
+    def _load_monitor_data(self, monitor_path):
         imon = 0
-        t_cpu = 0
-        start_time = 0
-        df = self.empty_df.copy()
+        null_time = pd.to_datetime(0, unit='ns')
+        start_time = null_time
+        t_cpu = null_time
+        df_camera, df_tm, df_pixel = self._get_new_dfs(0, null_time)
         with open(monitor_path) as file:
             for line in file:
                 if line and line != '\n':
@@ -312,120 +328,143 @@ class MonitorWriter:
                             format="%Y-%m-%d %H:%M:%S:%f"
                         )
                         # TODO: store monitor ASCII with UTC timestamps
-                        # t_cpu = t_cpu.tz_localize("Europe/Berlin").tz_convert("UTC").tz_localize(None)
+                        t_cpu = (t_cpu.tz_localize("Europe/Berlin")
+                                 .tz_convert("UTC")
+                                 .tz_localize(None))
 
                         if 'Monitoring Event Done' in line:
+                            if imon > 0:
+                                self._append_monitor_event(
+                                    df_camera, df_tm, df_pixel
+                                )
                             if not start_time:
                                 start_time = t_cpu
-                            df.loc[:, 'imon'] = imon
-                            df.loc[:, 't_cpu'] = t_cpu
-                            self.append_monitor_event(df)
-                            yield df
+                            self.current_t_cpu = t_cpu
+                            new_dfs = self._get_new_dfs(imon, t_cpu)
+                            df_camera, df_tm, df_pixel = new_dfs
                             imon += 1
-                            df = self.empty_df.copy()
                             continue
 
-                        if len(data) < 6:
-                            continue
+                        # if len(data) < 6:
+                        #     continue
 
                         device = data[2]
                         measurement = data[3]
                         key = device + "_" + measurement
-                        if key in self.supported:
-                            device_id = int(data[4])
+                        if key in self.supported_camera:
+                            value = float(data[4])
+                            df_camera.loc[0, key] = value
+                        elif key in self.supported_tm:
+                            idevice = int(data[4])
                             value = float(data[5])
-
-                            df.loc[device_id, key] = value
+                            df_tm.loc[idevice, key] = value
+                        elif key in self.supported_pixel:
+                            idevice = int(data[4])
+                            value = float(data[5])
+                            df_pixel.loc[idevice, key] = value
 
                     except ValueError:
                         print("ValueError from line: {}".format(line))
 
-            metadata = dict(
-                input_path=monitor_path,
-                n_events=imon,
-                start_time=start_time,
-                end_time=t_cpu,
-                n_modules=self.n_modules,
-                n_tmpix=self.n_tmpix
-            )
-            self.add_metadata(**metadata)
+        metadata = dict(
+            input_path=monitor_path,
+            n_events=imon,
+            start_time=start_time,
+            end_time=t_cpu,
+            n_modules=self.n_modules,
+            n_tmpix=self.n_tmpix,
+            n_pixels=self.n_pixels
+        )
+        self.add_metadata(**metadata)
 
-    def match_to_data_events(self, data_ev):
-        t_cpu_data = data_ev.loc[0, 't_cpu']
-        t_cpu_next_monitor = self.next_monitor_ev.loc[0, 't_cpu']
-        delta = t_cpu_next_monitor - t_cpu_data
-        if self.first and delta > pd.Timedelta(5, unit='m'):
-            print("WARNING: events are >5 minutes before start of monitor "
-                  "file, are you sure it is the correct monitor file?")
-            self.first = False
-
-        # Get next monitor event until the times match
-        while (t_cpu_data > t_cpu_next_monitor) and not self.eof:
-            try:
-                self.monitor_ev = self.next_monitor_ev.copy()
-                self.next_monitor_ev = next(self.monitor_it)
-                t_cpu_current_monitor = self.monitor_ev.loc[0, 't_cpu']
-                t_cpu_next_monitor = self.next_monitor_ev.loc[0, 't_cpu']
-                monitor_delta = t_cpu_next_monitor - t_cpu_current_monitor
-                if self.t_delta_max < monitor_delta:
-                    self.t_delta_max = monitor_delta
-            except StopIteration:
-                self.eof = True
-                # Use last monitor event for t_delta_max seconds
-                imon = self.monitor_ev.loc[0, 'imon']
-                t_cpu = self.monitor_ev.loc[0, 't_cpu']
-                self.next_monitor_ev = self.empty_df.copy()
-                self.next_monitor_ev.loc[:, 'imon'] = imon + 1
-                self.next_monitor_ev.loc[:, 't_cpu'] = t_cpu + self.t_delta_max
-                t_cpu_next_monitor = self.next_monitor_ev.loc[0, 't_cpu']
-        if self.eof and (t_cpu_data > t_cpu_next_monitor) and not self.aeof:
-            # Add empty monitor event to file
-            print("WARNING: End of monitor events reached, "
-                  "setting new monitor items to NaN")
-            self.monitor_ev = self.next_monitor_ev.copy()
-            self.append_monitor_event(self.monitor_ev)
-            self.aeof = True
-
-        imon = self.monitor_ev.loc[0, 'imon']
-        module = data_ev.loc[:, 'pixel'] // self.n_tmpix
-        data_ev['monitor_index'] = imon * self.n_modules + module
-
-    def _append_to_file(self):
-        if self.df_list:
-            df = pd.concat(self.df_list, ignore_index=True)
-
-            df_float = df.select_dtypes(
-                include=['float']
-            ).apply(pd.to_numeric, downcast='float')
-            df[df_float.columns] = df_float
-            df['imon'] = df['imon'].astype(np.uint32)
-            df['module'] = df['module'].astype(np.uint8)
-
-            self.store.append('monitor', df, index=False, data_columns=True)
-            self.n_bytes += df.memory_usage(index=True, deep=True).sum()
-            self.df_list = []
-            self.df_list_n_bytes = 0
-
-    def append_monitor_event(self, df_ev):
-        self.df_list.append(df_ev)
-        self.df_list_n_bytes += df_ev.memory_usage(index=True, deep=True).sum()
+    def _append_monitor_event(self, df_camera, df_tm, df_pixel):
+        self.t_cpu_list.append(self.current_t_cpu)
+        self.df_camera_list.append(df_camera)
+        self.df_tm_list.append(df_tm)
+        self.df_pixel_list.append(df_pixel)
+        n_bytes_camera = df_camera.memory_usage(index=True, deep=True).sum()
+        n_bytes_tm = df_tm.memory_usage(index=True, deep=True).sum()
+        n_bytes_pixel = df_pixel.memory_usage(index=True, deep=True).sum()
+        self.df_list_n_bytes += (n_bytes_camera + n_bytes_tm + n_bytes_pixel)
         if self.df_list_n_bytes >= 0.5E9:
             self._append_to_file()
+
+    def _append_to_file(self):
+        type_list = [
+            ("df_camera_list", 'monitor_camera'),
+            ("df_tm_list", 'monitor_tm'),
+            ("df_pixel_list", 'monitor_pixel'),
+        ]
+        for attr, key in type_list:
+            df_list = getattr(self, attr)
+            if df_list:
+                df = pd.concat(df_list, ignore_index=True)
+
+                df_float = df.select_dtypes(
+                    include=['float']
+                ).apply(pd.to_numeric, downcast='float')
+                df[df_float.columns] = df_float
+                df['imon'] = df['imon'].astype(np.uint32)
+                df['idevice'] = df['idevice'].astype(np.uint16)
+
+                self.store.append(key, df, index=False, data_columns=True)
+                self.n_bytes += df.memory_usage(index=True, deep=True).sum()
+                setattr(self, attr, [])
+                self.df_list_n_bytes = 0
 
     def add_metadata(self, **kwargs):
         self.metadata = dict(**self.metadata, **kwargs)
 
     def _save_metadata(self):
         print("Saving monitor metadata to HDF5 file")
-        self.store.get_storer('monitor').attrs.metadata = self.metadata
+        self.store['monitor_metadata'] = pd.DataFrame()
+        store = self.store.get_storer('monitor_metadata')
+        store.attrs.metadata = self.metadata
 
     def finish(self):
-        # Finish processing monitor file
-        for _ in self.monitor_it:
-            pass
         self._append_to_file()
         self.add_metadata(n_bytes=self.n_bytes)
         self._save_metadata()
+
+    def _set_data_monitor_index(self, data_ev, imon):
+        pix = data_ev.loc[:, 'pixel']
+        tm = pix // self.n_tmpix
+        data_ev['monitor_camera_index'] = imon
+        data_ev['monitor_tm_index'] = imon * self.n_modules + tm
+        data_ev['monitor_pixel_index'] = imon * self.n_pixels + pix
+
+    def match_to_data_events(self, data_ev):
+        t_cpu_data = data_ev.loc[0, 't_cpu']
+        if self.first:
+            delta = self.t_cpu_list[0] - t_cpu_data
+            if delta > pd.Timedelta(5, unit='m'):
+                print("WARNING: events are >5 minutes before start of monitor "
+                      "file, are you sure it is the correct monitor file?")
+            self.first = False
+
+        if not self.eof:
+            for imon, t_cpu_monitor in enumerate(self.t_cpu_list):
+                if t_cpu_data < t_cpu_monitor:
+                    self._set_data_monitor_index(data_ev, imon)
+                    break
+                self.eof = True
+
+        if self.eof:
+            t_limit = self.t_cpu_list[-1] + self.t_delta_max * 5
+            if t_cpu_data <= t_limit:
+                imon = len(self.t_cpu_list) - 1
+                self._set_data_monitor_index(data_ev, imon)
+            else:
+                imon = len(self.t_cpu_list)
+                if not self.aeof:
+                    # Add empty monitor event to file
+                    print("WARNING: End of monitor events reached, "
+                          "setting new monitor items to NaN")
+                    t_cpu = t_limit
+                    dfs = self._get_new_dfs(imon, t_cpu)
+                    self._append_monitor_event(*dfs)
+                    self.aeof = True
+                self._set_data_monitor_index(data_ev, imon)
 
 
 class HDFStoreReader(ABC):
