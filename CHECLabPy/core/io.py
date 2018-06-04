@@ -4,7 +4,7 @@ from astropy.io import fits
 import warnings
 import os
 from os import remove
-from abc import ABC, abstractmethod
+import json
 from CHECLabPy.utils.files import create_directory
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 
@@ -262,12 +262,28 @@ class MonitorWriter:
 
         self.store = store
 
-        self.supported_camera = []
+        self.supported_camera = [
+            "CAM_CameraState",
+            "CAM_EventBuildingStatus",
+            "CAM_EventRate",
+            "CAM_TotalPacketsReceived",
+            "CAM_BadPacketsReceived",
+            "CH_POWER",
+            "CH_PUMP_1",
+            "CH_T_AMBIENT",
+            "CH_T_SET",
+            "CH_T_WATER_IN",
+            "CH_T_WATER_OUT",
+            "DACQ_T_DACQ1",
+            "DACQ_T_DACQ2"
+        ]
         self.supported_tm = [
             "TM_T_PRI",
             "TM_T_AUX",
             "TM_T_PSU",
-            "TM_T_SIPM"
+            "TM_T_SIPM",
+            "TM_SiPM_I",
+            "TM_SiPM_V"
         ]
         self.supported_pixel = []
 
@@ -975,3 +991,18 @@ class MonitorReader:
         idevice, col_values = self.select_columns(['idevice', column], key)
         df = pd.DataFrame({"idevice": idevice, column: col_values})
         return df.groupby('idevice').mean()[column].values
+
+    def print_columns(self):
+        """
+        Print each column heading and which DataFrame they are located inside
+        """
+        columns_camera = self.columns_camera
+        columns_tm = self.columns_tm
+        columns_pixel = self.columns_pixel
+        remove = ['imon', 'idevice', 't_cpu']
+        columns = dict(
+            monitor_camera=[c for c in columns_camera if c not in remove],
+            monitor_tm=[c for c in columns_tm if c not in remove],
+            monitor_pixel=[c for c in columns_pixel if c not in remove],
+        )
+        print(json.dumps(columns, indent=4))
