@@ -1005,10 +1005,10 @@ class MonitorReader:
         columns_camera = self.columns_camera
         columns_tm = self.columns_tm
         columns_pixel = self.columns_pixel
-        remove = ['imon', 'idevice', 't_cpu']
+        remove_ = ['imon', 'idevice', 't_cpu']
         columns = dict(
-            monitor_camera=[c for c in columns_camera if c not in remove],
-            monitor_tm=[c for c in columns_tm if c not in remove],
-            monitor_pixel=[c for c in columns_pixel if c not in remove],
+            monitor_camera=[c for c in columns_camera if c not in remove_],
+            monitor_tm=[c for c in columns_tm if c not in remove_],
+            monitor_pixel=[c for c in columns_pixel if c not in remove_],
         )
         print(json.dumps(columns, indent=4))
