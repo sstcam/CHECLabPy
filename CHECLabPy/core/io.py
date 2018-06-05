@@ -361,9 +361,6 @@ class MonitorWriter:
                             imon += 1
                             continue
 
-                        # if len(data) < 6:
-                        #     continue
-
                         device = data[2]
                         measurement = data[3]
                         key = device + "_" + measurement
@@ -381,6 +378,8 @@ class MonitorWriter:
 
                     except ValueError:
                         print("ValueError from line: {}".format(line))
+                    except IndexError:
+                        print("IndexError from line: {}".format(line))
 
         metadata = dict(
             input_path=monitor_path,
@@ -744,27 +743,34 @@ class DL1Reader:
         n_rows = n_events * self.metadata['n_pixels']
         return next(self.iterate_over_chunks(n_rows))
 
-    def get_monitor_column(self, monitor_index, column_name):
+    def get_matched_monitor_column(self, column_name):
         """
-        Get a column from the monitor column corresponding to the
-        monitor_index of the currect 'data' DataFrame.
+        Match a monitor column to the waveform events
 
         Parameters
         ----------
-        monitor_index : ndarray
-            The indicis of the monitor rows requested
         column_name : str
             Column name from the monitor DataFrame
 
         Returns
         -------
+        pd.Series
 
         """
-        try:
-            column = self.monitor.select_column(column_name)[monitor_index]
-        except AttributeError:
-            raise AttributeError("No monitor information was included in "
-                                 "the creation of this file")
+        key = self.monitor.get_key_for_column(column_name)
+        if key == "monitor_camera":
+            event_key = "monitor_camera_index"
+        elif key == "monitor_tm":
+            event_key = "monitor_tm_index"
+        elif key == "monitor_pixel":
+            event_key = "monitor_pixel_index"
+        else:
+            msg = "Case not handled for key: {}".format(key)
+            raise KeyError(msg)
+
+        imonitor = self.select_column(event_key)
+        column = self.monitor.select_column(column_name, key)[imonitor]
+
         return column
 
 
@@ -999,10 +1005,10 @@ class MonitorReader:
         columns_camera = self.columns_camera
         columns_tm = self.columns_tm
         columns_pixel = self.columns_pixel
-        remove = ['imon', 'idevice', 't_cpu']
+        remove_ = ['imon', 'idevice', 't_cpu']
         columns = dict(
-            monitor_camera=[c for c in columns_camera if c not in remove],
-            monitor_tm=[c for c in columns_tm if c not in remove],
-            monitor_pixel=[c for c in columns_pixel if c not in remove],
+            monitor_camera=[c for c in columns_camera if c not in remove_],
+            monitor_tm=[c for c in columns_tm if c not in remove_],
+            monitor_pixel=[c for c in columns_pixel if c not in remove_],
         )
         print(json.dumps(columns, indent=4))
