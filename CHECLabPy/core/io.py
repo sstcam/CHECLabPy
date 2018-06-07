@@ -274,8 +274,65 @@ class MonitorWriter:
             "CH_T_SET",
             "CH_T_WATER_IN",
             "CH_T_WATER_OUT",
+            "SB_IMON_BP_12V",
+            "SB_IMON_DACQ1_12V",
+            "SB_IMON_DACQ2_12V",
+            "SB_IMON_ETH_12V",
+            "SB_IMON_FAN_12V",
+            "SB_IMON_LED_12V",
+            "SB_IMON_LID_12V",
+            "SB_IMON_TIM_12V",
+            "SB_SMON_FAN1",
+            "SB_SMON_FAN2",
+            "SB_SMON_FAN3",
+            "SB_SMON_FAN4",
+            "SB_SMON_FAN5",
+            "SB_SMON_FAN6",
+            "SB_TMON_EX2",
+            "SB_TMON_EX3",
+            "SB_TMON_EX4",
+            "SB_TMON_EX5",
+            "SB_TMON_FAN1",
+            "SB_VMON_BP_12V",
+            "SB_VMON_DACQ1_12V",
+            "SB_VMON_DACQ2_12V",
+            "SB_VMON_ETH_12V",
+            "SB_VMON_FAN_12V",
+            "SB_VMON_LED_12V",
+            "SB_VMON_LID_12V",
+            "SB_VMON_TIM_12V",
+            "PSU_POWER_CONSUM",
+            "PSU_CURRENT_IN",
+            "PSU_VOLTAGE_IN",
+            "PSU_CURRENT_BP_MOD",
+            "PSU_CURRENT_SB_MOD",
+            "PSU_CURRENT_35V1_MOD",
+            "PSU_CURRENT_35V2_MOD",
+            "PSU_VOLTAGE_BP_MOD",
+            "PSU_VOLTAGE_SB_MOD",
+            "PSU_VOLTAGE_35V1_MOD",
+            "PSU_VOLTAGE_35V2_MOD",
+            "PSU_TEMP_BP_MOD",
+            "PSU_TEMP_SB_MOD",
+            "PSU_TEMP_35V1_MOD",
+            "PSU_TEMP_35V2_MOD",
             "DACQ_T_DACQ1",
-            "DACQ_T_DACQ2"
+            "DACQ_T_DACQ2",
+            "DACQ_TM_INTERF",
+            "DACQ_DEBUG_DACQ1",
+            "DACQ_SFP0_DACQ1",
+            "DACQ_SFP1_DACQ1",
+            "DACQ_DEBUG_DACQ2",
+            "DACQ_SFP0_DACQ2",
+            "DACQ_SFP1_DACQ2",
+            "DACQ_FPGA_DACQ1",
+            "DACQ_FPGA_DACQ2",
+            "BP_TRIG_COUNTER",
+            "BP_TRIG_RATE",
+            "BP_TM_PRESENT",
+            "BP_TM_POWERED",
+            "BP_TM_VOLTAGE",
+            "BP_TM_CURRENT",
         ]
         self.supported_tm = [
             "TM_T_PRI",
@@ -283,9 +340,12 @@ class MonitorWriter:
             "TM_T_PSU",
             "TM_T_SIPM",
             "TM_SiPM_I",
-            "TM_SiPM_V"
+            "TM_SiPM_V",
+            "TM_State",
         ]
-        self.supported_pixel = []
+        self.supported_pixel = [
+            "TM_SP_VOLTAGE",
+        ]
 
         self.metadata = {}
         self.n_bytes = 0
@@ -299,12 +359,12 @@ class MonitorWriter:
         self.n_tmpix = 64
         self.n_pixels = self.n_modules * self.n_tmpix
         self.first = True
-        self.eof = False
-        self.aeof = False
-        self.t_delta_max = pd.Timedelta(0)
+        self.nan_added = False
 
         self._load_monitor_data(monitor_path)
-        self.t_delta_max = np.diff(self.t_cpu_list).max()
+        self.t_cpu_array = np.array(self.t_cpu_list)
+        self.t_delta_max = np.diff(self.t_cpu_array).max()
+        self.max_allowed_dt = self.t_delta_max * 5
 
     def _get_new_dfs(self, imon, t_cpu):
         df_camera = pd.DataFrame(dict(
@@ -337,7 +397,8 @@ class MonitorWriter:
             for line in file:
                 if line and line != '\n':
                     try:
-                        data = line.replace('\n', '').split(" ")
+                        data = line.replace('\n', '').replace('\t', " ")
+                        data = data.split(" ")
 
                         t_cpu = pd.to_datetime(
                             "{} {}".format(data[0], data[1]),
@@ -365,16 +426,22 @@ class MonitorWriter:
                         measurement = data[3]
                         key = device + "_" + measurement
                         if key in self.supported_camera:
-                            value = float(data[4])
+                            if len(data[4]) == self.n_modules:
+                                value = data[4]
+                            else:
+                                value = float(data[4])
                             df_camera.loc[0, key] = value
                         elif key in self.supported_tm:
                             idevice = int(data[4])
                             value = float(data[5])
                             df_tm.loc[idevice, key] = value
                         elif key in self.supported_pixel:
-                            idevice = int(data[4])
-                            value = float(data[5])
-                            df_pixel.loc[idevice, key] = value
+                            imod = int(data[4])
+                            tmpix = np.arange(self.n_tmpix)
+                            sp = tmpix // 4
+                            idevice = imod * self.n_tmpix + tmpix
+                            values = np.array(data[5:21], dtype=np.float)
+                            df_pixel.loc[idevice, key] = values[sp]
 
                     except ValueError:
                         print("ValueError from line: {}".format(line))
@@ -455,34 +522,28 @@ class MonitorWriter:
         t_cpu_data = data_ev.loc[0, 't_cpu']
         if self.first:
             delta = self.t_cpu_list[0] - t_cpu_data
-            if delta > pd.Timedelta(5, unit='m'):
+            if delta > self.max_allowed_dt:
                 print("WARNING: events are >5 minutes before start of monitor "
                       "file, are you sure it is the correct monitor file?")
             self.first = False
 
-        if not self.eof:
-            for imon, t_cpu_monitor in enumerate(self.t_cpu_list):
-                if t_cpu_data < t_cpu_monitor:
-                    self._set_data_monitor_index(data_ev, imon)
-                    break
-                self.eof = True
+        dt = np.abs(t_cpu_data - self.t_cpu_array)
+        dt_min = dt.min()
+        imon = dt.argmin()
 
-        if self.eof:
-            t_limit = self.t_cpu_list[-1] + self.t_delta_max * 5
-            if t_cpu_data <= t_limit:
-                imon = len(self.t_cpu_list) - 1
-                self._set_data_monitor_index(data_ev, imon)
-            else:
-                imon = len(self.t_cpu_list)
-                if not self.aeof:
-                    # Add empty monitor event to file
-                    print("WARNING: End of monitor events reached, "
-                          "setting new monitor items to NaN")
-                    t_cpu = t_limit
-                    dfs = self._get_new_dfs(imon, t_cpu)
-                    self._append_monitor_event(*dfs)
-                    self.aeof = True
-                self._set_data_monitor_index(data_ev, imon)
+        if dt_min <= self.max_allowed_dt:
+            self._set_data_monitor_index(data_ev, imon)
+        else:
+            imon = len(self.t_cpu_list)
+            if not self.nan_added:
+                # Add empty monitor event to file
+                print("WARNING: End of monitor events reached, "
+                      "setting new monitor items to NaN")
+                t_cpu = self.t_cpu_array[-1] + self.max_allowed_dt
+                dfs = self._get_new_dfs(imon, t_cpu)
+                self._append_monitor_event(*dfs)
+                self.nan_added = True
+            self._set_data_monitor_index(data_ev, imon)
 
 
 class DL1Reader:
