@@ -18,7 +18,7 @@ from CHECLabPy.plotting.spe import SpectrumFitPlotter
 
 
 class SpectrumFitProcessor:
-    def __init__(self, fitter, *readers, dead_pixels=None):
+    def __init__(self, fitter, *readers, dead_pixels=None, charge_col_name = 'charge'):
         """
         Processes the spectrum to obtain the fit parameters for each pixel,
         utilising all cpu cores via the multiprocessing package.
@@ -39,7 +39,7 @@ class SpectrumFitProcessor:
         self.charges = []
         desc = "Obtaining charge columns from readers"
         for reader in tqdm(readers, desc=desc):
-            pixel, charge = reader.select_columns(['pixel', 'charge'])
+            pixel, charge = reader.select_columns(['pixel', charge_col_name])
             self.pixels.append(pixel.values)
             self.charges.append(charge.values)
 
@@ -231,6 +231,13 @@ def main():
                         help='Enter plot mode, and plot the spectrum and fit '
                              'for the pixel specified. "-1" speciefies the '
                              'entire camera')
+    parser.add_argument('-C', '--charge_col_name', dest='charge_col_name', action='store',
+                        default='charge', type=str,help='The column name of the charge to' 
+                                                        'be used in the fit.')
+    parser.add_argument('-r', '--range', dest='fitrange',
+                        help="""Data range on which the fit should be made on
+                        (Usage: '[low_end,high_end]') """)
+
     args = parser.parse_args()
 
     input_paths = args.input_paths
@@ -238,16 +245,22 @@ def main():
     fitter_str = args.fitter
     config_path = args.config
     plot_pixel = args.plot_pixel
+    if(args.fitrange is not None):
+        fit_range = eval(args.fitrange)
+    else:
+        fit_range = None
 
     readers = [DL1Reader(path) for path in input_paths]
     kwargs = dict(
         product_name=fitter_str,
         n_illuminations=len(readers),
-        config_path=config_path
+        config_path=config_path,
+        fit_range = fit_range
+        
     )
     fitter = SpectrumFitterFactory.produce(**kwargs)
 
-    fit_processor = SpectrumFitProcessor(fitter, *readers)
+    fit_processor = SpectrumFitProcessor(fitter, *readers, charge_col_name = args.charge_col_name)
     if plot_pixel is not None:
         p_fit = SpectrumFitPlotter()
         if plot_pixel == -1:
