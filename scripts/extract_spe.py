@@ -255,8 +255,7 @@ def main():
         product_name=fitter_str,
         n_illuminations=len(readers),
         config_path=config_path,
-        fit_range = fit_range
-        
+        fit_range = fit_range   
     )
     fitter = SpectrumFitterFactory.produce(**kwargs)
 
