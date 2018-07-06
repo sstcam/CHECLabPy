@@ -8,74 +8,82 @@ import scipy
 
 class NNLSPulseExtraction(WaveformReducer):
     """
-    Extractor which uses the result of the 
+    Extractor which does not extract charge but pulses from a waveform using NNLS to
+    solve for a linear combination of pulses. Each extracted pulse has a time and a charge.
+    By summing the charge from the pulses the recorded charge is obtained.
+
     """
 
     def __init__(self, n_pixels, n_samples, plot=False,
-                 reference_pulse_path='',bases_bin=4,save_waveforms=True, **kwargs):
+                 reference_pulse_path='',bases_bin=4,save_pulses=True, **kwargs):
         super().__init__(n_pixels, n_samples, plot, **kwargs)
 
         ref = self.load_reference_pulse(reference_pulse_path)
         self.pulse_template, self.norm = ref
-        self.save_waveforms = save_waveforms
+        self.save_pulses = save_pulses
         self.extracted = None
         self.time_bins=np.arange(128)*1e-9
-        self.trange = self.time_bins[-1] - self.time_bins[0]
-        self.dt = np.diff(self.time_bins)[0]
+        
+        #Setting up model matrix from pulse template
         x = np.linspace(0,120e-9,1000)
         y = self.pulse_template(x)
-        tt = np.linspace(0,128e-9,1000)
-
         t_end = x[np.max(np.where(y>0))]
         self.nbasis = int(127+t_end)*bases_bin
         self.basis_t = np.linspace(self.time_bins[0]-t_end, self.time_bins[-2], self.nbasis)
-        self.response = np.zeros((len(self.time_bins),self.nbasis))
+        self.model_matrix = np.zeros((len(self.time_bins),self.nbasis))
         for i,t in enumerate(self.basis_t):
-            self.response[:,i] = self.pulse_template((self.time_bins-t))
-    
+            self.model_matrix[:,i] = self.pulse_template((self.time_bins-t))
+        #This number makes the charge scale similarly to Cross-correlation
+        self.charge_scale = 7
+        #The tolerance sets a constraint on how small pulses can be extracted
+        self.tolerance = -14.5
     @staticmethod
     def load_reference_pulse(path):
-        # file = np.loadtxt(path, delimiter=' ')
+        
         import pickle
-        x,y =pickle.load(open('myrefpuls.pkl','rb'))
+        # x,y =pickle.load(open('myrefpuls.pkl','rb'))
+        file = np.loadtxt(path, delimiter=' ')
+        x,y = file[:, 0],file[:, 1]
+        # Making sure the start of the pulse template 
+        # somewhat smoothly begins at 0
         k = y[4]/x[4]
         for i in range(4):
             y[i] = k*x[i]
 
+        # Making sure the tail of the pulse template 
+        # somewhat smoothly goes to 0    
         n = 10
         k = -y[-n]/x[n]
         m = y[-n]-k*x[-n]
         for i in range(1,n+1):
-            print(y[-i])
             y[-i] = k*x[-i]+m
-            print(y[-i],x[-i])
         pulse_template = scipy.interpolate.InterpolatedUnivariateSpline(x,y,ext=1)
         norm = scipy.integrate.quad(pulse_template,0,36*1e-9)
         return pulse_template,norm
-    
-    # def get_pulse_height(self, charge):
-    #     return charge * self.y_1pe.max()
-    
+        
     @jit()
     def _pulse_extraction(self, waveforms):
         px_c = list()
         for i, wf in enumerate(waveforms):
-            #Magic number (7) to make it scale similarly to Crosscorrelation
-            pcharge = nnls(self.response,wf,tolerance=-14.5,verbose=False) * 7  
-            # ptime,pcharge,norm = self._extract_charge(wf)
+            pcharge = nnls(self.model_matrix,wf,tolerance=self.tolerance) * self.charge_scale  
+            
             #only care about non zero pulses
             m = pcharge>0
-            pcharge,ptime =pcharge[m],self.basis_t[m]
-
+            pcharge,ptime = pcharge[m],self.basis_t[m]
+            # pcharge,ptime =self._merge_pulses(pcharge[m],self.basis_t[m])
+            
+            #A rough time estimate
             if(len(ptime)>0):
                 evt = np.average(ptime,weights=pcharge)
             else:
                 evt = 0
+
             px_c.append((ptime,pcharge,evt))  
+        
         return np.array(px_c)
     
     @jit()
-    def _merge_pulses(self, charges,times,binwidth=2.5e-9):
+    def _merge_pulses(self, charges,times,binwidth=2.e-9):
         if(len(charges)==0):
             return times,charges
         binned_charge =[charges[0]]
@@ -90,7 +98,7 @@ class NNLSPulseExtraction(WaveformReducer):
 
         binned_charge = np.asarray(binned_charge)
         binned_time = np.asarray(binned_time)
-        return binned_time, binned_charge
+        return  binned_charge,binned_time
 
 
     def _set_t_event(self, waveforms):
@@ -105,23 +113,27 @@ class NNLSPulseExtraction(WaveformReducer):
         charge   = np.zeros(len(self.extracted))
         tcharge  = np.zeros(len(self.extracted))
         tmcharge = np.zeros(len(self.extracted))
+        tccharge = np.zeros(len(self.extracted))
         norm     = np.zeros(len(self.extracted))
         npulses  = np.zeros(len(self.extracted))
         self.pulses = dict()
-        self.wf     = dict()
         av_ptime    = np.mean(self.extracted[:,2])
         for i,c in enumerate(self.extracted):
             m = c[1]>0
             tm = (np.abs(c[0]-av_ptime)<=5e-9) & m 
             charge[i] = np.sum(c[1][m])
             tcharge[i] = np.sum(c[1][tm])
+            
             if(tcharge[i]>0):
                 tmcharge[i] = np.max(c[1][tm])
 
+            if(len(c[1][~tm])!=0):
+                tccharge[i] = np.sum(c[1][~tm])
+
             npulses[i] = len(c[1][m])
-            if(self.save_waveforms and npulses[i]>0):
+            
+            if(self.save_pulses and npulses[i]>0):
                 self.pulses[i] = np.array(list(zip(c[0][m],c[1][m])))
-                self.wf[i] = waveforms[i]
 
         er = np.ones(len(charge), dtype=bool)
         er[:] =False
@@ -131,6 +143,7 @@ class NNLSPulseExtraction(WaveformReducer):
             charge   = charge,
             tcharge  = tcharge,
             tmcharge = tmcharge,
+            tccharge = tccharge,
             norm     = norm,
             npulses  = npulses,
             errata   = er
