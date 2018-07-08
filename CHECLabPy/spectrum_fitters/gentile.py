@@ -170,7 +170,6 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     papk = np.power(1 - pap, N[:, 0])
     p0ap = pct * papk
     pap1 = pct * (1-papk) * papk
-    pap2 = pct * (1-papk) * (1-papk)
 
     pe_sigma = np.sqrt(k * spe_sigma ** 2 + eped_sigma ** 2)
     ap_sigma = np.sqrt(k * sap ** 2 + eped_sigma ** 2)

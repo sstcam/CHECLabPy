@@ -2,6 +2,23 @@ import numpy as np
 from scipy.stats import binned_statistic as bs
 from matplotlib.ticker import FuncFormatter
 from CHECLabPy.plotting.setup import Plotter
+from IPython import embed
+
+
+def sum_errors(array):
+    return np.sqrt(np.sum(np.power(array, 2))) / array.size
+
+
+def bin_points(x, y, yerr):
+    bins = np.geomspace(0.1, x.max(), 100)
+    x_b = bs(x, x, 'mean', bins=bins)[0]
+    y_b = bs(x, y, 'mean', bins=bins)[0]
+    yerr_b = bs(x, yerr, sum_errors, bins=bins)[0]
+    valid = ~np.isnan(x_b)
+    x_b = x_b[valid]
+    y_b = y_b[valid]
+    yerr_b = yerr_b[valid]
+    return x_b, y_b, yerr_b
 
 
 class ChargeResolutionPlotter(Plotter):
@@ -30,6 +47,9 @@ class ChargeResolutionPlotter(Plotter):
         x = df_pixel['true']
         y = df_pixel['rmse']
         yerr = 1 / np.sqrt(x)
+
+        x, y, yerr = bin_points(x, y, yerr)
+
         self._plot(x, y, yerr, label)
 
     def plot_camera(self, label=''):
@@ -37,22 +57,9 @@ class ChargeResolutionPlotter(Plotter):
         y = self.df_camera['rmse']
         yerr = 1 / np.sqrt(x)
 
-        bins = np.geomspace(0.1, x.max(), 100)
+        x, y, yerr = bin_points(x, y, yerr)
 
-        def binning(array):
-            return bs(x, array, 'mean', bins=bins)
-
-        def sum_errors(array):
-            return np.sqrt(np.sum(np.power(array, 2))) / array.size
-
-        def bin_errors(array):
-            return bs(x, array, sum_errors, bins=bins)
-
-        x_b, _, _ = binning(x)
-        y_b, _, _ = binning(y)
-        yerr_b, _, _ = bin_errors(yerr)
-
-        self._plot(x_b, y_b, yerr_b, label)
+        self._plot(x, y, yerr, label)
 
     def finish(self):
         self.ax.set_xlabel("True Charge (p.e.)")
@@ -88,7 +95,8 @@ class ChargeResolutionPlotter(Plotter):
         return (np.sqrt((n_nsb + n_add) + np.power(enf, 2) * npe +
                         np.power(sigma2 * npe, 2)) / npe).astype(float)
 
-    def plot_requirement(self, true):
+    @staticmethod
+    def requirement(true):
         """
         CTA requirement curve.
 
@@ -107,9 +115,10 @@ class ChargeResolutionPlotter(Plotter):
         requirement = lc(true, n_nsb, n_add, enf, sigma2)
         requirement[true > defined_npe] = np.nan
 
-        self.ax.plot(true, requirement, '--', color='red', label="Requirement")
+        return requirement
 
-    def plot_goal(self, true):
+    @staticmethod
+    def goal(true):
         """
         CTA goal curve.
 
@@ -128,9 +137,10 @@ class ChargeResolutionPlotter(Plotter):
         goal = lc(true, n_nsb, n_add, enf, sigma2)
         goal[true > defined_npe] = np.nan
 
-        self.ax.plot(true, goal, '--', color='green', label="Goal")
+        return goal
 
-    def plot_poisson(self, true):
+    @staticmethod
+    def poisson(true):
         """
         Poisson limit curve.
 
@@ -140,8 +150,48 @@ class ChargeResolutionPlotter(Plotter):
             Number of photoeletrons
         """
         poisson = np.sqrt(true) / true
+        return poisson
 
+    def plot_requirement(self, true):
+        requirement = self.requirement(true)
+        self.ax.plot(true, requirement, '--', color='red', label="Requirement")
+
+    def plot_goal(self, true):
+        goal = self.goal(true)
+        self.ax.plot(true, goal, '--', color='green', label="Goal")
+
+    def plot_poisson(self, true):
+        poisson = self.poisson(true)
         self.ax.plot(true, poisson, '--', color='grey', label="Poisson")
+
+
+
+class ChargeResolutionWRRPlotter(ChargeResolutionPlotter):
+    def _plot(self, x, y, yerr, label=''):
+        y = y / self.requirement(x)
+        super()._plot(x, y, yerr, label)
+
+    def plot_requirement(self, true):
+        requirement = self.requirement(true)
+        requirement /= self.requirement(true)
+        self.ax.plot(true, requirement, '--', color='red', label="Requirement")
+
+    def plot_goal(self, true):
+        goal = self.goal(true)
+        goal /= self.requirement(true)
+        self.ax.plot(true, goal, '--', color='green', label="Goal")
+
+    def plot_poisson(self, true):
+        poisson = self.poisson(true)
+        poisson /= self.requirement(true)
+        self.ax.plot(true, poisson, '--', color='grey', label="Poisson")
+
+    def finish(self):
+        self.ax.set_xlabel("True Charge (p.e.)")
+        self.ax.set_ylabel("(Charge Resolution / True) / Requirement")
+        self.ax.set_xscale('log')
+        self.ax.get_xaxis().set_major_formatter(
+            FuncFormatter(lambda x, _: '{:g}'.format(x)))
 
 
 class ChargeMeanPlotter(Plotter):
@@ -157,6 +207,9 @@ class ChargeMeanPlotter(Plotter):
         self.df_camera = store['charge_statistics_camera']
 
     def _plot(self, x, y, yerr, label=''):
+        y /= x
+        yerr /= x
+        yerr = None
         color = self.ax._get_lines.get_next_color()
 
         (_, caps, _) = self.ax.errorbar(
@@ -176,39 +229,26 @@ class ChargeMeanPlotter(Plotter):
         x = df_pixel['amplitude']
         y = df_pixel['mean']
         yerr = df_pixel['std']
+        x, y, yerr = bin_points(x, y, yerr)
         self._plot(x, y, yerr, label)
 
     def plot_camera(self, label=''):
         x = self.df_camera['amplitude']
         y = self.df_camera['mean']
         yerr = self.df_camera['std']
+        x, y, yerr = bin_points(x, y, yerr)
+        self._plot(x, y, yerr, label)
 
-        bins = np.geomspace(0.1, x.max(), 100)
-
-        def binning(array):
-            return bs(x, array, 'mean', bins=bins)
-
-        def sum_errors(array):
-            return np.sqrt(np.sum(np.power(array, 2))) / array.size
-
-        def bin_errors(array):
-            return bs(x, array, sum_errors, bins=bins)
-
-        x_b, _, _ = binning(x)
-        y_b, _, _ = binning(y)
-        yerr_b, _, _ = bin_errors(yerr)
-
-        self._plot(x_b, y_b, yerr_b, label)
 
     def finish(self):
-        p = [self.x_min, self.x_max]
-        self.ax.plot(p, p, '--', color='grey')
+        p = np.linspace(self.x_min, self.x_max, 1000)
+        self.ax.plot(p, p/p, '--', color='grey')
 
         self.ax.set_xlabel("True Charge (p.e.)")
-        self.ax.set_ylabel("Charge Resolution / True")
+        self.ax.set_ylabel("Charge Average / True")
         self.ax.set_xscale('log')
         self.ax.get_xaxis().set_major_formatter(
             FuncFormatter(lambda x, _: '{:g}'.format(x)))
-        self.ax.set_yscale('log')
-        self.ax.get_yaxis().set_major_formatter(
-            FuncFormatter(lambda y, _: '{:g}'.format(y)))
+        # self.ax.set_yscale('log')
+        # self.ax.get_yaxis().set_major_formatter(
+        #     FuncFormatter(lambda y, _: '{:g}'.format(y)))
