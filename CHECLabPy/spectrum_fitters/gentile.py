@@ -218,7 +218,7 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     signal : ndarray
         The y values of the total signal.
     """
-    eped = 0
+
     # Obtain pedestal signal
     params = [norm, eped, eped_sigma, lambda_]
     ped_s = pedestal_signal(x, *params)
