@@ -234,9 +234,7 @@ def main():
     parser.add_argument('-C', '--charge_col_name', dest='charge_col_name', action='store',
                         default='charge', type=str,help='The column name of the charge to' 
                                                         'be used in the fit.')
-    parser.add_argument('-r', '--range', dest='fitrange',
-                        help="""Data range on which the fit should be made on
-                        (Usage: '[low_end,high_end]') """)
+    
 
     args = parser.parse_args()
 
@@ -245,17 +243,12 @@ def main():
     fitter_str = args.fitter
     config_path = args.config
     plot_pixel = args.plot_pixel
-    if(args.fitrange is not None):
-        fit_range = eval(args.fitrange)
-    else:
-        fit_range = None
 
     readers = [DL1Reader(path) for path in input_paths]
     kwargs = dict(
         product_name=fitter_str,
         n_illuminations=len(readers),
         config_path=config_path,
-        fit_range = fit_range   
     )
     fitter = SpectrumFitterFactory.produce(**kwargs)
 

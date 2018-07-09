@@ -6,7 +6,7 @@ from CHECLabPy.core.spectrum_fitter import SpectrumFitter
 
 
 class GentileFitter(SpectrumFitter):
-    def __init__(self, n_illuminations, config_path=None, fit_range=None):
+    def __init__(self, n_illuminations, config_path=None):
         """
         SpectrumFitter which uses the SiPM fitting formula from Gentile 2010
         http://adsabs.harvard.edu/abs/2010arXiv1006.3263G
@@ -23,10 +23,8 @@ class GentileFitter(SpectrumFitter):
 
         self.nbins = 100
         self.range = [-40, 150]
-        if(fit_range is not None):
-            self.range = fit_range
 
-        self.add_parameter("norm", None, 0, 1e5, fix=False, multi=True)
+        self.add_parameter("norm", None, 0, 100000, fix=True, multi=True)
         self.add_parameter("eped", 0, -10, 10)
         self.add_parameter("eped_sigma", 9, 2, 20)
         self.add_parameter("spe", 25, 15, 40)
@@ -220,7 +218,7 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     signal : ndarray
         The y values of the total signal.
     """
-
+    eped = 0
     # Obtain pedestal signal
     params = [norm, eped, eped_sigma, lambda_]
     ped_s = pedestal_signal(x, *params)
