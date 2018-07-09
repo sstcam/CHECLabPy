@@ -199,11 +199,16 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
             for c in self.coeff_names:
                 if 'initial' in d:
                     ini = c
-                    self.initial[ini] = float(d['initial'].pop(c, self.initial[ini]))
+                    self.initial[ini] = d['initial'].pop(c, self.initial[ini])
+                    if(self.initial[ini] is not None):
+                        self.initial[ini] = float(self.initial[ini])
                 if 'limits' in d:
                     lim = "limit_" + c
                     list_ = d['limits'].pop(c, self.limits[lim])
-                    self.limits[lim] = tuple([float(l) for l in list_])
+                    if(isinstance(list_,list)):
+                        self.limits[lim] = tuple([float(l) for l in list_])
+                    else:
+                        self.limits[lim] = list_
                 if 'fix' in d:
                     fix = "fix_" + c
                     self.fix[fix] = d['fix'].pop(c, self.fix[fix])
