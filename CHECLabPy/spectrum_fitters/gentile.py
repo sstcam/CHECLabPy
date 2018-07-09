@@ -15,9 +15,6 @@ class GentileFitter(SpectrumFitter):
         ----------
         n_illuminations : int
             Number of illuminations to fit simultaneously
-        fit_range : [float,float]
-            A tuple or list with [low,high] values of the range on which the fit 
-            should be done on   
         """
         super().__init__(n_illuminations, config_path)
 
