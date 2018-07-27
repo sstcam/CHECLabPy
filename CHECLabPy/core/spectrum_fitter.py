@@ -268,6 +268,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         bins = self.nbins
         range_ = self.range
         self.hist = []
+        self.spectra = spectrum
         for i in range(self.n_illuminations):
             h, e, b = self.get_histogram(spectrum[i], bins, range_)
             self.hist.append(h)
