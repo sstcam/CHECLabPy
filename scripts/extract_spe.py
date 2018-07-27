@@ -277,7 +277,7 @@ def main():
     fit_processor.multiprocess()
 
     if not output_path:
-        if len(input_paths) == 1:
+        if (len(input_paths) == 1) and ('_dl1.h5' in input_paths[0]):
             output_path = input_paths[0].replace('_dl1.h5', '_spe.h5')
         else:
             output_dir = os.path.dirname(input_paths[0])

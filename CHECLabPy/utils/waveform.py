@@ -109,6 +109,44 @@ def get_average_wf(source, t_shift):
     return average_wf
 
 
+def get_average_wf_per_pixel(source, t_shift):
+    """
+    Loop over the file to get average waveform across all events and pixels
+    (while shifting each event so the max of the event-averages all match)
+
+    Parameters
+    ----------
+    source : `core.file_handling.Reader`
+    t_shift : int
+        Time bin to shift to
+
+    Returns
+    -------
+    average_wf : ndarray
+        One dimenstional array of shape (n_samples) containing the average
+        waveform across all events and pixels
+    """
+    n_events = source.n_events
+    n_pixels = source.n_pixels
+    n_samples = source.n_samples
+
+    baseline_subtractor = BaselineSubtractor(source)
+
+    desc = "Processing events"
+    average_wf = np.zeros((n_pixels, n_samples))
+    n = 0
+    for waveforms in tqdm(source, total=n_events, desc=desc):
+        waveforms_bs = baseline_subtractor.subtract(waveforms)
+
+        wf = shift_waveform(waveforms_bs, t_shift)
+
+        average_wf += wf
+        n += 1
+
+    average_wf /= n
+    return average_wf
+
+
 def obtain_dead_pixel_list_r1(source, threshold_percent=0.1, max_events=100):
     """
     From an R1 file, obtain a list of pixels that are considered dead as the

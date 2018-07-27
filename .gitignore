@@ -103,3 +103,5 @@ venv.bak/
 
 # Pycharm editor project files
 .idea
+*.tio
+*.h5

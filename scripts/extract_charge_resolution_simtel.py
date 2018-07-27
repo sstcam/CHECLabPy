@@ -1,79 +1,22 @@
 import argparse
 from argparse import ArgumentDefaultsHelpFormatter as Formatter
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import os
-import re
-from numpy.polynomial.polynomial import polyfit, polyval
 from CHECLabPy.utils.files import open_runlist_dl1
-from CHECLabPy.plotting.camera import CameraImage
 from CHECLabPy.utils.resolutions import ChargeResolution, ChargeStatistics
-from matplotlib import pyplot as plt
 
 
 class SPEHandler:
     def __init__(self, df_runs, spe_path):
         """
-        Class to handle the calibration of the true charge and measured
-        charge from the SPE spectrum
+        Class to handle the calibration of the measured charge from the SPE spectrum
         """
         store_spe = pd.HDFStore(spe_path)
         df_spe = store_spe['coeff_pixel']
 
         self.baseline = df_spe['eped'].values
         self.mvperpe = df_spe['spe'].values
-
-        meta_spe = store_spe.get_storer('metadata').attrs.metadata
-        n_spe_illuminations = meta_spe['n_illuminations']
-        spe_files = meta_spe['files']
-        n_pixels = meta_spe['n_pixels']
-
-        spe_transmission = []
-        pattern = '(.+?)/Run(.+?)_dl1.h5'
-        for path in spe_files:
-            try:
-                reg_exp = re.search(pattern, path)
-                if reg_exp:
-                    run = int(reg_exp.group(2))
-                    spe_transmission.append(df_runs.loc[run]['transmission'])
-            except AttributeError:
-                print("Problem with Regular Expression, "
-                      "{} does not match patten {}".format(path, pattern))
-        np.array(spe_transmission)
-
-        pix_lambda = np.zeros((n_spe_illuminations, n_pixels))
-        for ill in range(n_spe_illuminations):
-            key = "lambda_" + str(ill)
-            lambda_ = df_spe[['pixel', key]].sort_values('pixel')[key].values
-            pix_lambda[ill] = lambda_
-
-        self.c, self.m = polyfit(spe_transmission, pix_lambda, 1)
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(1, 1, 1)
-        # ax.plot(spe_transmission, pix_lambda, 'x')
-        # ax.plot(spe_transmission,
-        #         polyval(spe_transmission, (self.c, self.m)).T)
-        #
-        # dead = [677, 293, 27, 1925]
-        # mask = np.zeros(n_pixels, dtype=np.bool)
-        # mask[dead] = True
-        # mm = np.ma.masked_array(self.m, mask=mask)
-        # cm = np.ma.masked_array(self.c, mask=mask)
-        # im_m = CameraImage.from_camera_version("1.1.0")
-        # im_c = CameraImage.from_camera_version("1.1.0")
-        # im_m.image = mm
-        # im_c.image = cm
-        # im_m.add_colorbar()
-        # im_c.add_colorbar()
-        # plt.show()
-        # from IPython import embed
-        # embed()
-
-    def calibrate_true(self, pixel, transmission):
-        m = self.m[pixel]
-        return transmission * m
 
     def calibrate_measured(self, pixel, mv):
         # TODO: include offset?
@@ -126,12 +69,11 @@ def main():
         it = enumerate(df_runs.iterrows())
         for i, (_, row) in tqdm(it, total=n_runs, desc=desc0):
             reader = row['reader']
-            transmission = row['transmission']
             # for df in reader.iterate_over_chunks():
             df = reader.get_first_n_events(1000)
             df = df.loc[~df['pixel'].isin(dead)]
             pixel = df['pixel'].values
-            true = spe_handler.calibrate_true(pixel, transmission)
+            true = df['mc_true'].values
             measured = df['charge'].values
             measured = spe_handler.calibrate_measured(pixel, measured)
             cr.add(pixel, true, measured)
