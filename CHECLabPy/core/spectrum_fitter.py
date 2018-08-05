@@ -200,10 +200,15 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
                 if 'initial' in d:
                     ini = c
                     self.initial[ini] = d['initial'].pop(c, self.initial[ini])
+                    if(self.initial[ini] is not None):
+                        self.initial[ini] = float(self.initial[ini])
                 if 'limits' in d:
                     lim = "limit_" + c
                     list_ = d['limits'].pop(c, self.limits[lim])
-                    self.limits[lim] = tuple(list_)
+                    if(isinstance(list_,list)):
+                        self.limits[lim] = tuple([float(l) for l in list_])
+                    else:
+                        self.limits[lim] = list_
                 if 'fix' in d:
                     fix = "fix_" + c
                     self.fix[fix] = d['fix'].pop(c, self.fix[fix])
@@ -263,6 +268,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         bins = self.nbins
         range_ = self.range
         self.hist = []
+        self.spectra = spectrum
         for i in range(self.n_illuminations):
             h, e, b = self.get_histogram(spectrum[i], bins, range_)
             self.hist.append(h)

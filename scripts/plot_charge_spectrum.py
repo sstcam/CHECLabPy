@@ -17,13 +17,16 @@ def main():
     parser.add_argument('-p', '--pixel', dest='pixel', action='store',
                         type=int, default=0,
                         help='pixel to plot the spectrum of')
+    parser.add_argument('-C', '--charge_col_name', dest='charge_col_name', action='store',
+                        default='charge', type=str,help='The column name of the charge to' 
+                                                        'be used in the fit.')
     args = parser.parse_args()
 
     input_path = args.input_path
     pixel = args.pixel
 
     with DL1Reader(input_path) as reader:
-        pixel_arr, charge = reader.select_columns(['pixel', 'charge'])
+        pixel_arr, charge = reader.select_columns(['pixel', args.charge_col_name])
         charge_pix = charge[pixel_arr == pixel]
 
     fig = plt.figure()
