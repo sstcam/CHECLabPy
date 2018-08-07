@@ -35,7 +35,7 @@ class GentileFitter(SpectrumFitter):
         for i in range(self.n_illuminations):
             norm = 'norm{}'.format(i)
             if p0[norm] is None:
-                p0[norm] = np.trapz(self.hist[i], self.between)+np.sum(self.spectra[i][self.spectra[i]<self.range[0]])
+                p0[norm] = np.trapz(self.hist[i], self.between)
 
     @staticmethod
     def _fit(x, **kwargs):
