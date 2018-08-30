@@ -3,13 +3,13 @@ from math import factorial
 from scipy.special import binom
 from numba import jit
 from CHECLabPy.core.spectrum_fitter import SpectrumFitter
+from IPython import embed
 
 
-class GentileFitter(SpectrumFitter):
+class MAPMFitter(SpectrumFitter):
     def __init__(self, n_illuminations, config_path=None):
         """
-        SpectrumFitter which uses the SiPM fitting formula from Gentile 2010
-        http://adsabs.harvard.edu/abs/2010arXiv1006.3263G
+        SpectrumFitter which uses the MAPM fitting formula
 
         Parameters
         ----------
@@ -24,12 +24,9 @@ class GentileFitter(SpectrumFitter):
         self.add_parameter("norm", None, 0, 100000, fix=True, multi=True)
         self.add_parameter("eped", 0, -10, 10)
         self.add_parameter("eped_sigma", 9, 2, 20)
-        self.add_parameter("spe", 25, 15, 40)
+        self.add_parameter("spe", 25, 5, 30)
         self.add_parameter("spe_sigma", 2, 1, 20)
-        self.add_parameter("lambda_", 0.7, 0.001, 6, multi=True)
-        self.add_parameter("opct", 0.4, 0.01, 0.8)
-        self.add_parameter("pap", 0.09, 0.01, 0.8)
-        self.add_parameter("dap", 0.5, 0, 0.8)
+        self.add_parameter("lambda_", 0.2, 0.001, 6, multi=True)
 
     def prepare_params(self, p0, limits, fix):
         for i in range(self.n_illuminations):
@@ -39,7 +36,7 @@ class GentileFitter(SpectrumFitter):
 
     @staticmethod
     def _fit(x, **kwargs):
-        return sipm_spe_fit(x, **kwargs)
+        return mapm_spe_fit(x, **kwargs)
 
 
 C = np.sqrt(2.0 * np.pi)
@@ -118,9 +115,8 @@ def pedestal_signal(x, norm, eped, eped_sigma, lambda_):
     return signal
 
 
-@jit
-def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
-              pap, dap):
+# @jit
+def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_):
     """
     Obtain the signal provided by photoelectrons in the pulse spectrum.
 
@@ -145,12 +141,6 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
         Spread in the number of photo-electrons incident on the MAPMT
     lambda_ : float
         Poisson mean (illumination in p.e.)
-    opct : float
-        Optical crosstalk probability
-    pap : float
-        Afterpulse probability
-    dap : float
-        The first distance of the after-pulse Gaussians from the main peaks
 
     Returns
     -------
@@ -162,29 +152,18 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
 
     """
     # Obtain poisson distribution
-    pj = _poisson_pmf_j(lambda_)
-    pct = np.sum(pj * np.power(1-opct, J) * np.power(opct, N - J) * BINOM, 1)
-
-    sap = spe_sigma
-
-    papk = np.power(1 - pap, N[:, 0])
-    p0ap = pct * papk
-    pap1 = pct * (1-papk) * papk
+    p = _poisson_pmf_j(lambda_)[0]
 
     pe_sigma = np.sqrt(k * spe_sigma ** 2 + eped_sigma ** 2)
-    ap_sigma = np.sqrt(k * sap ** 2 + eped_sigma ** 2)
 
-    signal = p0ap[k] * _normal_pdf(x, eped + k * spe, pe_sigma)
-    signal += pap1[k] * _normal_pdf(x, eped + k * spe * (1.0-dap), ap_sigma)
-    signal *= norm
+    signal = norm * p[k] * _normal_pdf(x, eped + k * spe, pe_sigma)
 
     return signal
 
 
-def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
-                 pap, dap, **kwargs):
+def mapm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, **kwargs):
     """
-    Fit for the SPE spectrum of a SiPM
+    Fit for the SPE spectrum of a MAPM
 
     Parameters
     ----------
@@ -202,12 +181,6 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
         Spread in the number of photo-electrons incident on the MAPMT
     lambda_ : float
         Poisson mean (illumination in p.e.)
-    opct : float
-        Optical crosstalk probability
-    pap : float
-        Afterpulse probability
-    dap : float
-        The first distance of the after-pulse Gaussians from the main peaks
 
     Returns
     -------
@@ -221,7 +194,7 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
 
     # Obtain pe signal
 
-    params = [norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct, pap, dap]
+    params = [norm, eped, eped_sigma, spe, spe_sigma, lambda_]
     pe_s = pe_signal(K, x[None, :], *params).sum(0)
 
     signal = ped_s + pe_s

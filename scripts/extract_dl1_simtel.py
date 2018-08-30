@@ -90,7 +90,7 @@ def main():
         print("PROGRESS: Reducing file {}/{}".format(i_path + 1, n_files))
 
         kwargs = dict(input_url=input_path, max_events=args.max_events)
-        reader = HESSIOEventSource(**kwargs)
+        reader = HESSIOEventSource(**kwargs)  # TODO: Use CHECLabPy.core.io_simtel.py
         seeker = EventSeeker(reader)
 
         n_events = len(seeker)

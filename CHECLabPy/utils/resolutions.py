@@ -3,7 +3,7 @@ import pandas as pd
 
 
 class ChargeResolution:
-    def __init__(self):
+    def __init__(self, mc_true=False):
         """
         Calculates the charge resolution with an efficient, low-memory
         interative approach, allowing the contribution of data/events
@@ -19,6 +19,13 @@ class ChargeResolution:
         of the list is becomming large (or at the end of the filling),
         reducing the time required to produce the output.
 
+        Parameters
+        ----------
+        mc_true : bool
+            Indicate if the "true charge" values are from the mc files, and
+            therefore are missing the poisson error. The poisson error will
+            therefore be included in the charge resolution calculation.
+
         Attributes
         ----------
         self._df_list : list
@@ -26,6 +33,7 @@ class ChargeResolution:
         self._n_bytes : int
             Monitors the number of bytes being held in memory
         """
+        self.mc_true = mc_true
         self._df_list = []
         self._df = pd.DataFrame()
         self._n_bytes = 0
@@ -94,24 +102,32 @@ class ChargeResolution:
             Dataframe containing the charge resolution for the entire camera
         """
         self.amalgamate()
-        df_pixel = self._df.copy()
-        true = df_pixel['true'].values
-        sum_ = df_pixel['sum'].values
-        n = df_pixel['n'].values
-        df_pixel['rmse'] = self.rmse(true, sum_, n)
-        df_pixel['rmse_abs'] = self.rmse_abs(sum_, n)
-        df_pixel['charge_resolution'] = self.charge_res(true, sum_, n)
-        df_pixel['charge_resolution_abs'] = self.charge_res_abs(true, sum_, n)
-        df_camera = self._df.copy().groupby('true').sum().reset_index()
-        df_camera = df_camera.drop(columns='pixel')
-        true = df_camera['true'].values
-        sum_ = df_camera['sum'].values
-        n = df_camera['n'].values
-        df_camera['rmse'] = self.rmse(true, sum_, n)
-        df_camera['rmse_abs'] = self.rmse_abs(sum_, n)
-        df_camera['charge_resolution'] = self.charge_res(true, sum_, n)
-        df_camera['charge_resolution_abs'] = self.charge_res_abs(true, sum_, n)
-        return df_pixel, df_camera
+
+        self._df = self._df.loc[self._df['true'] != 0]
+
+        df_p = self._df.copy()
+        true = df_p['true'].values
+        sum_ = df_p['sum'].values
+        n = df_p['n'].values
+        if self.mc_true:
+            df_p['charge_resolution'] = self.charge_res(true, sum_, n)
+            df_p['charge_resolution_abs'] = self.charge_res_abs(true, sum_, n)
+        else:
+            df_p['charge_resolution'] = self.rmse(true, sum_, n)
+            df_p['charge_resolution_abs'] = self.rmse_abs(sum_, n)
+        df_c = self._df.copy().groupby('true').sum().reset_index()
+        df_c = df_c.drop(columns='pixel')
+        true = df_c['true'].values
+        sum_ = df_c['sum'].values
+        n = df_c['n'].values
+        if self.mc_true:
+            df_c['charge_resolution'] = self.charge_res(true, sum_, n)
+            df_c['charge_resolution_abs'] = self.charge_res_abs(true, sum_, n)
+        else:
+            df_c['charge_resolution'] = self.rmse(true, sum_, n)
+            df_c['charge_resolution_abs'] = self.rmse_abs(sum_, n)
+
+        return df_p, df_c
 
 
 class ChargeStatistics:

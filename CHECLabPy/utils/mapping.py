@@ -1,4 +1,5 @@
 import warnings
+import numpy as np
 
 
 def get_clp_mapping_from_tc_mapping(tc_mapping):
@@ -115,3 +116,16 @@ def get_tm_mapping(mapping):
     df.metadata['n_columns'] = df['col'].max() + 1
     df.metadata['size'] *= 8
     return df
+
+
+def get_ctapipe_camera_geometry(mapping):
+    from ctapipe.instrument import TelescopeDescription
+    from astropy import units as u
+
+    foclen = 2.283 * u.m
+    pix_pos = np.vstack([
+        mapping['xpix'].values,
+        mapping['xpix'].values
+    ]) * u.m
+    camera = TelescopeDescription.guess(*pix_pos, foclen).camera
+    return camera
