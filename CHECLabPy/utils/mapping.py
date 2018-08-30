@@ -124,8 +124,8 @@ def get_ctapipe_camera_geometry(mapping):
 
     foclen = 2.283 * u.m
     pix_pos = np.vstack([
-        mapping['xpix'].values,
-        mapping['xpix'].values
+        mapping['xpix'].values * 1E2,
+        mapping['ypix'].values * 1E2
     ]) * u.m
     camera = TelescopeDescription.guess(*pix_pos, foclen).camera
     return camera
