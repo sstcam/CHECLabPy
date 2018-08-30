@@ -12,72 +12,26 @@ from CHECLabPy.utils.resolutions import ChargeResolution, ChargeStatistics
 from matplotlib import pyplot as plt
 
 
-class SPEHandler:
-    def __init__(self, df_runs, spe_path):
+class Calibrator:
+    def __init__(self, calib_path):
         """
         Class to handle the calibration of the true charge and measured
-        charge from the SPE spectrum
+        charge
         """
-        store_spe = pd.HDFStore(spe_path)
-        df_spe = store_spe['coeff_pixel']
-
-        self.baseline = df_spe['eped'].values
-        self.mvperpe = df_spe['spe'].values
-
-        meta_spe = store_spe.get_storer('metadata').attrs.metadata
-        n_spe_illuminations = meta_spe['n_illuminations']
-        spe_files = meta_spe['files']
-        n_pixels = meta_spe['n_pixels']
-
-        spe_transmission = []
-        pattern = '(.+?)/Run(.+?)_dl1.h5'
-        for path in spe_files:
-            try:
-                reg_exp = re.search(pattern, path)
-                if reg_exp:
-                    run = int(reg_exp.group(2))
-                    spe_transmission.append(df_runs.loc[run]['transmission'])
-            except AttributeError:
-                print("Problem with Regular Expression, "
-                      "{} does not match patten {}".format(path, pattern))
-        np.array(spe_transmission)
-
-        pix_lambda = np.zeros((n_spe_illuminations, n_pixels))
-        for ill in range(n_spe_illuminations):
-            key = "lambda_" + str(ill)
-            lambda_ = df_spe[['pixel', key]].sort_values('pixel')[key].values
-            pix_lambda[ill] = lambda_
-
-        self.c, self.m = polyfit(spe_transmission, pix_lambda, 1)
-
-        # fig = plt.figure()
-        # ax = fig.add_subplot(1, 1, 1)
-        # ax.plot(spe_transmission, pix_lambda, 'x')
-        # ax.plot(spe_transmission,
-        #         polyval(spe_transmission, (self.c, self.m)).T)
-        #
-        # dead = [677, 293, 27, 1925]
-        # mask = np.zeros(n_pixels, dtype=np.bool)
-        # mask[dead] = True
-        # mm = np.ma.masked_array(self.m, mask=mask)
-        # cm = np.ma.masked_array(self.c, mask=mask)
-        # im_m = CameraImage.from_camera_version("1.1.0")
-        # im_c = CameraImage.from_camera_version("1.1.0")
-        # im_m.image = mm
-        # im_c.image = cm
-        # im_m.add_colorbar()
-        # im_c.add_colorbar()
-        # plt.show()
-        # from IPython import embed
-        # embed()
+        store_spe = pd.HDFStore(calib_path)
+        df_calib = store_spe['calibration_coeff']
+        self.fw_m = df_calib['fw_m'].values
+        self.ff_c = df_calib['ff_c'].values
+        self.ff_m = df_calib['ff_m'].values
 
     def calibrate_true(self, pixel, transmission):
-        m = self.m[pixel]
+        m = self.fw_m[pixel]
         return transmission * m
 
     def calibrate_measured(self, pixel, mv):
-        # TODO: include offset?
-        return (mv - self.baseline[pixel]) / self.mvperpe[pixel]
+        c = self.ff_c[pixel]
+        m = self.ff_m[pixel]
+        return (mv - c) / m
 
 
 def main():
@@ -87,10 +41,10 @@ def main():
     parser.add_argument('-f', '--file', dest='input_path', action='store',
                         required=True, help='path to the runlist.txt file for '
                                             'a dynamic range run')
-    parser.add_argument('-s', '--spe', dest='spe_path', action='store',
-                        required=True, help='path to the spe file to use for '
-                                            'the calibration of the measured '
-                                            'and true charges')
+    parser.add_argument('-c', '--calib', dest='calib_path', action='store',
+                        required=True,
+                        help='path to the calibration file that '
+                             'is a result of extract_cr_calibration')
     parser.add_argument('-o', '--output', dest='output_path', action='store',
                         help='path to store the output HDF5 file '
                              '(OPTIONAL, will be automatically set if '
@@ -98,7 +52,7 @@ def main():
     args = parser.parse_args()
 
     input_path = args.input_path
-    spe_path = args.spe_path
+    calib_path = args.calib_path
     output_path = args.output_path
 
     df_runs = open_runlist_dl1(input_path)
@@ -107,7 +61,7 @@ def main():
 
     dead = [677, 293, 27, 1925]
 
-    spe_handler = SPEHandler(df_runs, spe_path)
+    calibrator = Calibrator(calib_path)
     cr = ChargeResolution()
     cs = ChargeStatistics()
 
@@ -131,9 +85,15 @@ def main():
             df = reader.get_first_n_events(1000)
             df = df.loc[~df['pixel'].isin(dead)]
             pixel = df['pixel'].values
-            true = spe_handler.calibrate_true(pixel, transmission)
+            true = calibrator.calibrate_true(pixel, transmission)
             measured = df['charge'].values
-            measured = spe_handler.calibrate_measured(pixel, measured)
+            measured = calibrator.calibrate_measured(pixel, measured)
+
+            # df_bias = pd.DataFrame(dict(pixel=pixel, true=true, measured=measured))
+            # df_bias['bias'] = df_bias.groupby(['pixel', 'true']).transform('mean')['measured']
+            # df_bias['withoutbias'] = df_bias['measured'] / df_bias['bias'] * df_bias['true']
+            # measured = df_bias['withoutbias'].values
+
             cr.add(pixel, true, measured)
             cs.add(pixel, true, measured)
             reader.store.close()
@@ -143,6 +103,8 @@ def main():
         df_pixel, df_camera = cs.finish()
         store['charge_statistics_pixel'] = df_pixel
         store['charge_statistics_camera'] = df_camera
+
+    print("Created charge resolution file: {}".format(output_path))
 
 
 if __name__ == '__main__':

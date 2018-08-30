@@ -1,8 +1,8 @@
 from CHECLabPy.core.base_reducer import WaveformReducer
-from CHECLabPy.data import get_file
 import numpy as np
 from scipy import interpolate
 from scipy.ndimage import correlate1d
+from CHECLabPy.utils.mapping import get_ctapipe_camera_geometry
 
 
 class CrossCorrelation(WaveformReducer):
@@ -54,6 +54,16 @@ class CrossCorrelation(WaveformReducer):
     def get_pulse_height(self, charge):
         return charge * self.y_1pe.max()
 
+    def get_reference_pulse_at_t(self, t):
+        ref_pad = np.pad(self.reference_pulse, self.n_samples, 'constant')
+        ref_t_start = ref_pad.size // 2
+        ref_t_end = ref_t_start + self.n_samples
+        if t > self.n_samples:
+            raise IndexError
+        start = ref_t_start - t
+        end = ref_t_end - t
+        return ref_pad[start:end]
+
     def _apply_cc(self, waveforms):
         cc = correlate1d(waveforms, self.reference_pulse)
         return cc
@@ -69,5 +79,85 @@ class CrossCorrelation(WaveformReducer):
         params = dict(
             charge=charge,
             cc_height=cc_height,
+        )
+        return params
+
+
+class CrossCorrelationPlus1(CrossCorrelation):
+    def _get_charge(self, waveforms):
+        charge = self.cc[:, self.t_event+1]
+        cc_height = self.get_pulse_height(charge)
+
+        params = dict(
+            charge=charge,
+            cc_height=cc_height,
+        )
+        return params
+
+
+class CrossCorrelationMinus1(CrossCorrelation):
+    def _get_charge(self, waveforms):
+        charge = self.cc[:, self.t_event-1]
+        cc_height = self.get_pulse_height(charge)
+
+        params = dict(
+            charge=charge,
+            cc_height=cc_height,
+        )
+        return params
+
+
+class CrossCorrelationNeighbour(CrossCorrelation):
+    def __init__(self, n_pixels, n_samples, plot=False,
+                 mapping=None, **kwargs):
+        super().__init__(n_pixels, n_samples, plot, **kwargs)
+
+        if mapping is None:
+            raise ValueError("A mapping must be passed "
+                             "to CtapipeNeighbourPeakIntegrator")
+
+        from ctapipe.image.charge_extractors import NeighbourPeakIntegrator
+
+        camera = get_ctapipe_camera_geometry(mapping)
+
+        self.integrator = NeighbourPeakIntegrator(
+            window_shift=0,
+            window_width=1,
+        )
+        self.integrator.neighbours = camera.neighbor_matrix_where
+
+    def _get_charge(self, waveforms):
+        extract = self.integrator.extract_charge
+        charge, peakpos, window = extract(self.cc[None, ...])
+        cc_height = self.get_pulse_height(charge[0])
+
+        params = dict(
+            charge=charge[0],
+            cc_height=cc_height,
+            ctapipe_peakpos=peakpos[0],
+        )
+        return params
+
+
+class CrossCorrelationLocal(CrossCorrelation):
+    def __init__(self, n_pixels, n_samples, plot=False, **kwargs):
+        super().__init__(n_pixels, n_samples, plot, **kwargs)
+
+        from ctapipe.image.charge_extractors import LocalPeakIntegrator
+
+        self.integrator = LocalPeakIntegrator(
+            window_shift=0,
+            window_width=1,
+        )
+
+    def _get_charge(self, waveforms):
+        extract = self.integrator.extract_charge
+        charge, peakpos, window = extract(self.cc[None, ...])
+        cc_height = self.get_pulse_height(charge[0])
+
+        params = dict(
+            charge=charge[0],
+            cc_height=cc_height,
+            ctapipe_peakpos=peakpos[0],
         )
         return params
