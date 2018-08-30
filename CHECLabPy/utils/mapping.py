@@ -41,6 +41,12 @@ def get_clp_mapping_from_tc_mapping(tc_mapping):
     return df
 
 
+def get_clp_mapping_from_version(version):
+    from target_calib import CameraConfiguration
+    tc_mapping = CameraConfiguration(version).GetMapping()
+    return get_clp_mapping_from_tc_mapping(tc_mapping)
+
+
 def get_tc_mapping_from_clp_mapping(mapping):
     """
     Get a TargetCalib Mapping class from a CHECLabPy mapping dataframe
