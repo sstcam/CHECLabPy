@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats.distributions import poisson
 from scipy.stats import chisquare
 import yaml
+import warnings
 
 
 class SpectrumFitterMeta(type):
@@ -366,8 +367,12 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
                             print_level=0, pedantic=False, throw_nan=True,
                             forced_parameters=self.coeff_names)
         m0.migrad()
-
         self.coeff = m0.values
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', iminuit.HesseFailedWarning)
+            m0.hesse()
+        self.errors = m0.errors
 
     def prepare_params(self, p0, limits, fix):
         """

@@ -18,7 +18,8 @@ from CHECLabPy.plotting.spe import SpectrumFitPlotter
 
 
 class SpectrumFitProcessor:
-    def __init__(self, fitter, *readers, dead_pixels=None, charge_col_name = 'charge'):
+    def __init__(self, fitter, *readers, dead_pixels=None,
+                 charge_col_name='charge'):
         """
         Processes the spectrum to obtain the fit parameters for each pixel,
         utilising all cpu cores via the multiprocessing package.
@@ -54,6 +55,7 @@ class SpectrumFitProcessor:
         manager = Manager()
         self.array = manager.dict()
         self.coeff = manager.dict()
+        self.errors = manager.dict()
         self.initial = manager.dict()
 
     def apply_pixel(self, pixel):
@@ -88,6 +90,10 @@ class SpectrumFitProcessor:
         coeff['rchi2'] = self.fitter.reduced_chi2
         coeff['p_value'] = self.fitter.p_value
         self.coeff[pixel] = coeff
+
+        errors = self.fitter.errors.copy()
+        errors['pixel'] = pixel
+        self.errors[pixel] = errors
 
         initial = self.fitter.p0.copy()
         self.fitter.coeff = initial
@@ -139,7 +145,7 @@ class SpectrumFitProcessor:
         Multi-process, where every cpu core is utilised to process pixels in
         parallel for a faster result
         """
-        with Pool() as pool:
+        with Pool(os.cpu_count() // 2) as pool:
             pool.map(self.apply_pixel, trange(self.n_pixels))
 
     def get_df_result(self):
@@ -150,6 +156,8 @@ class SpectrumFitProcessor:
         -------
         df_coeff : `pd.DataFrame`
             DataFrame containing the fit coefficients for each pixel
+        df_errors : `pd.DataFrame`
+            DataFrame containing the fit coefficients errors for each pixel
         df_initial : `pd.DataFrame`
             DataFrame containing the initial fit coefficients for each pixel
         df_array : `pd.DataFrame`
@@ -157,12 +165,14 @@ class SpectrumFitProcessor:
             each pixel
         """
         df_coeff = pd.DataFrame(list(self.coeff.values()))
+        df_errors = pd.DataFrame(list(self.errors.values()))
         df_initial = pd.DataFrame(list(self.initial.values()))
         df_array = pd.DataFrame(list(self.array.values()))
         df_coeff = df_coeff.set_index('pixel', drop=False).sort_index()
+        df_errors = df_errors.set_index('pixel', drop=False).sort_index()
         df_initial = df_initial.set_index('pixel', drop=False).sort_index()
         df_array = df_array.set_index('pixel', drop=False).sort_index()
-        return df_coeff, df_initial, df_array
+        return df_coeff, df_errors, df_initial, df_array
 
     def get_df_result_camera(self):
         """
@@ -172,6 +182,8 @@ class SpectrumFitProcessor:
         -------
         df_coeff : `pd.DataFrame`
             DataFrame containing the fit coefficients for all pixels
+        df_errors : `pd.DataFrame`
+            DataFrame containing the fit coefficients errors for all pixels
         df_initial : `pd.DataFrame`
             DataFrame containing the initial fit coefficients for all pixels
         df_array : `pd.DataFrame`
@@ -196,6 +208,8 @@ class SpectrumFitProcessor:
         coeff['rchi2'] = self.fitter.reduced_chi2
         coeff['p_value'] = self.fitter.p_value
 
+        errors = self.fitter.errors.copy()
+
         initial = self.fitter.p0.copy()
         self.fitter.coeff = initial
         initial['chi2'] = self.fitter.chi2
@@ -203,9 +217,10 @@ class SpectrumFitProcessor:
         initial['p_value'] = self.fitter.p_value
 
         df_coeff = pd.DataFrame([coeff])
+        df_errors = pd.DataFrame([errors])
         df_initial = pd.DataFrame([initial])
         df_array = pd.DataFrame([array])
-        return df_coeff, df_initial, df_array
+        return df_coeff, df_errors, df_initial, df_array
 
 
 def main():
@@ -231,11 +246,10 @@ def main():
                         help='Enter plot mode, and plot the spectrum and fit '
                              'for the pixel specified. "-1" speciefies the '
                              'entire camera')
-    parser.add_argument('-C', '--charge_col_name', dest='charge_col_name', action='store',
-                        default='charge', type=str,help='The column name of the charge to' 
-                                                        'be used in the fit.')
-    
-
+    parser.add_argument('-C', '--charge_col_name', dest='charge_col_name',
+                        action='store', default='charge',
+                        type=str, help='The column name of the charge to '
+                                       'be used in the fit.')
     args = parser.parse_args()
 
     input_paths = args.input_paths
@@ -252,7 +266,8 @@ def main():
     )
     fitter = SpectrumFitterFactory.produce(**kwargs)
 
-    fit_processor = SpectrumFitProcessor(fitter, *readers, charge_col_name = args.charge_col_name)
+    fit_processor = SpectrumFitProcessor(fitter, *readers,
+                                         charge_col_name=args.charge_col_name)
     if plot_pixel is not None:
         p_fit = SpectrumFitPlotter()
         if plot_pixel == -1:
@@ -291,15 +306,19 @@ def main():
 
     print("Created HDFStore file: {}".format(output_path))
     with pd.HDFStore(output_path) as store:
-        df_coeff, df_initial, df_array = fit_processor.get_df_result()
+        result = fit_processor.get_df_result()
+        df_coeff, df_errors, df_initial, df_array = result
         store['coeff_pixel'] = df_coeff
+        store['errors_pixel'] = df_errors
         store['initial_pixel'] = df_initial
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', PerformanceWarning)
             store['array_pixel'] = df_array
 
-        df_coeff, df_initial, df_array = fit_processor.get_df_result_camera()
+        result = fit_processor.get_df_result_camera()
+        df_coeff, df_errors, df_initial, df_array = result
         store['coeff_camera'] = df_coeff
+        store['errors_camera'] = df_errors
         store['initial_camera'] = df_initial
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', PerformanceWarning)
