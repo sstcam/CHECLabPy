@@ -205,9 +205,7 @@ class WaveformReducer:
 
         if self.plot:
             ipulse = np.argmax(waveforms[:, self.t_event])
-            ilow = np.argmax(
-                waveforms[waveforms[:, self.t_event] < 1, self.t_event]
-            )
+            ilow = np.argmin(waveforms[:, self.t_event])
 
             fig = plt.figure(figsize=(13, 5))
             ax_p = fig.add_subplot(1, 2, 1)

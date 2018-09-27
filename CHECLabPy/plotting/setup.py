@@ -84,6 +84,6 @@ class Plotter:
         self.finish()
         output_dir = os.path.dirname(output_path)
         self.create_directory(output_dir)
-        self.fig.tight_layout()
+        # self.fig.tight_layout()
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))

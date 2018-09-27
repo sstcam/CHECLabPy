@@ -31,6 +31,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         self.edges = None
         self.between = None
         self.coeff = None
+        self.errors = None
         self.p0 = None
 
         self.nbins = 100

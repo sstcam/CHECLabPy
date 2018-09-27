@@ -22,6 +22,10 @@ class ReaderSimtel:
         self.camera_config = CameraConfiguration(camera_version)
         tc_mapping = self.camera_config.GetMapping(n_modules == 1)
         self.mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
+        pix_x = first_event.inst.subarray.tel[tels[0]].camera.pix_x.value
+        pix_y = first_event.inst.subarray.tel[tels[0]].camera.pix_y.value
+        self.mapping['xpix'] = pix_x
+        self.mapping['ypix'] = pix_y
         self.reference_pulse_path = self.camera_config.GetReferencePulsePath()
 
         self.r1 = HESSIOR1Calibrator()

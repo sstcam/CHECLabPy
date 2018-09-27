@@ -6,6 +6,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
 from CHECLabPy.plotting.setup import Plotter
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
+from copy import copy
 
 
 class CameraPlotter(Plotter):
@@ -116,7 +117,12 @@ class CameraImage(Plotter):
         self.ax.set_xlabel("X position (m)")
         self.ax.set_ylabel("Y position (m)")
         self.ax.autoscale_view()
-        self.ax.axis('off')
+        # self.ax.axis('off')
+
+        self.pixel_highlighting = copy(self.pixels)
+        self.pixel_highlighting.set_facecolor('none')
+        self.pixel_highlighting.set_linewidth(0)
+        self.ax.add_collection(self.pixel_highlighting)
 
     @staticmethod
     def figsize(scale=1.5):
@@ -129,6 +135,8 @@ class CameraImage(Plotter):
     @image.setter
     def image(self, val):
         assert val.size == self.n_pixels
+
+        self._image = val
 
         self.pixels.set_array(val)
         self.pixels.changed()
@@ -205,6 +213,31 @@ class CameraImage(Plotter):
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
             self.add_text_to_pixel(pixel, values[pixel], fmt, size)
+
+    def highlight_pixels(self, pixels, color='g', linewidth=0.5, alpha=0.75):
+        """
+        Highlight the given pixels with a colored line around them
+
+        Parameters
+        ----------
+        pixels : index-like
+            The pixels to highlight.
+            Can either be a list or array of integers or a
+            boolean mask of length number of pixels
+        color: a matplotlib conform color
+            the color for the pixel highlighting
+        linewidth: float
+            linewidth of the highlighting in points
+        alpha: 0 <= alpha <= 1
+            The transparency
+        """
+
+        l = np.zeros_like(self.image)
+        l[pixels] = linewidth
+        self.pixel_highlighting.set_linewidth(l)
+        self.pixel_highlighting.set_alpha(alpha)
+        self.pixel_highlighting.set_edgecolor(color)
+        # self._update()
 
     def annotate_tm_edge_label(self):
         """
