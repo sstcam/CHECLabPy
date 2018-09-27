@@ -9,6 +9,7 @@ class CHECMReducer(WaveformReducer):
 
         from ctapipe.image.charge_extractors import AverageWfPeakIntegrator
 
+        self.clean_waveform = kwargs.get("clean_waveform", True)
         self.window_size = self.kwargs.get("window_size", 8)
         self.window_shift = self.kwargs.get("window_shift", 4)
         self.integrator = AverageWfPeakIntegrator(
@@ -47,10 +48,11 @@ class CHECMReducer(WaveformReducer):
         return cleaned
 
     def _get_charge(self, waveforms):
-        cleaned = self._clean(waveforms)
+        if self.clean_waveform:
+            waveforms = self._clean(waveforms)
 
         extract = self.integrator.extract_charge
-        charge, peakpos, window = extract(cleaned[None, ...])
+        charge, peakpos, window = extract(waveforms[None, ...])
 
         params = dict(
             charge=charge[0],

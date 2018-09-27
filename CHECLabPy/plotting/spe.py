@@ -10,7 +10,7 @@ class SpectrumFitPlotter(Plotter):
         self.ax = plt.subplot2grid((3, 2), (0, 0), rowspan=3)
         self.ax_t = plt.subplot2grid((3, 2), (0, 1), rowspan=3)
 
-    def plot(self, hist, edges, between, fit_x, fit, initial, coeff,
+    def plot(self, hist, edges, between, fit_x, fit, initial, coeff, errors,
              coeff_initial, fitter_name, n_illuminations):
 
         self.ax.hist(between, bins=edges, weights=hist, histtype='step',
@@ -21,7 +21,14 @@ class SpectrumFitPlotter(Plotter):
         self.ax_t.axis('off')
         columns = ['Initial', 'Fit']
         rows = list(coeff.keys())
-        cells = [['%.3g' % coeff_initial[i], '%.3g' % coeff[i]] for i in rows]
+        cells = [['%.3g' % coeff_initial[i], '%.3f' % coeff[i]] for i in rows]
+        if errors is not None:
+            for r, i in enumerate(rows):
+                try:
+                    cells[r][1] = '%.3f ± %.3f' % (coeff[i], errors[i])
+                except:
+                    pass
+            # cells = [['%.3g' % coeff_initial[i], '%.3g ± %.3g' % (coeff[i], errors[i])] for i in rows]
         table = self.ax_t.table(cellText=cells, rowLabels=rows,
                                 colLabels=columns, loc='center')
         table.set_fontsize(6)
@@ -37,6 +44,7 @@ class SpectrumFitPlotter(Plotter):
             charges, fitter.nbins, fitter.range
         )
         coeff = fitter.coeff.copy()
+        errors = fitter.errors.copy()
         coeffl = fitter.coeff_names.copy()
         coeff_initial = fitter.p0.copy()
         fit = fitter.get_fit_summed(x, **coeff)
@@ -50,8 +58,8 @@ class SpectrumFitPlotter(Plotter):
         coeff_initial['rchi2'] = fitter.reduced_chi2
         coeff_initial['p_value'] = fitter.p_value
 
-        self.plot(hist, edges, between, x, fit, initial, coeff, coeff_initial,
-                  fitter_name, n_illuminations)
+        self.plot(hist, edges, between, x, fit, initial, coeff, errors,
+                  coeff_initial, fitter_name, n_illuminations)
 
     def plot_from_df_pixel(self, df_coeff, df_inital, df_array, meta, pixel):
         fitter_name = meta['fitter']
@@ -64,7 +72,7 @@ class SpectrumFitPlotter(Plotter):
         initial = df_array.loc[pixel, 'initial']
         coeff = df_coeff.loc[pixel].to_dict()
         coeff_initial = df_inital.loc[pixel].to_dict()
-        self.plot(hist, edges, between, fit_x, fit, initial, coeff,
+        self.plot(hist, edges, between, fit_x, fit, initial, coeff, None, #TODO: add support for errors
                   coeff_initial, fitter_name, n_illuminations)
 
     def plot_from_df_camera(self, df_coeff, df_inital, df_array, meta):
@@ -78,5 +86,5 @@ class SpectrumFitPlotter(Plotter):
         initial = df_array.loc[0, 'initial']
         coeff = df_coeff.loc[0].to_dict()
         coeff_initial = df_inital.loc[0].to_dict()
-        self.plot(hist, edges, between, fit_x, fit, initial, coeff,
+        self.plot(hist, edges, between, fit_x, fit, initial, coeff, None,
                   coeff_initial, fitter_name, n_illuminations)
