@@ -45,6 +45,11 @@ class WaveformReducer:
         params = dict(t_event=self.t_event)
 
         params.update(self._get_charge(waveforms))
+
+        # Always get integration window charge
+        original_get_charge = WaveformReducer._get_charge
+        params['charge_iw'] = original_get_charge(self, waveforms)['charge']
+
         if not self.extract_charge_only:
             params.update(self._get_baseline(waveforms))
             params.update(self._get_timing(waveforms))
