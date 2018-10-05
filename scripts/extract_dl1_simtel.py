@@ -105,6 +105,11 @@ def main():
         camera_config = CameraConfiguration(camera_version)
         tc_mapping = camera_config.GetMapping(n_modules == 1)
         mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
+        pix_x = first_event.inst.subarray.tel[tels[0]].camera.pix_x.value
+        pix_y = first_event.inst.subarray.tel[tels[0]].camera.pix_y.value
+        mapping['xpix'] = pix_x
+        mapping['ypix'] = pix_y
+
         if 'reference_pulse_path' not in config:
             reference_pulse_path = camera_config.GetReferencePulsePath()
             config['reference_pulse_path'] = reference_pulse_path
