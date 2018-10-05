@@ -121,8 +121,21 @@ class WaveformReducer:
         return xm, ym
 
     def interpolate_wf_peak(self, waveforms):
-        start = self.window_start - 3
-        end = self.window_end + 3
+        if "t_event" in self.kwargs:
+            t_event = self.kwargs['t_event']
+        else:
+            avg = np.mean(waveforms, axis=0)
+            t_event = np.argmax(avg)
+            n_samples = waveforms.shape[1]
+            if t_event < 10:
+                t_event = 10
+            elif t_event > n_samples - 10:
+                t_event = n_samples - 10
+        window_start = t_event - self.window_shift
+        window_end = window_start + self.window_size
+
+        start = window_start - 3
+        end = window_end + 3
         t1 = np.argmax(waveforms[:, start:end], 1) + start
         y0 = waveforms[self.pixel_arange, t1 - 1]
         y1 = waveforms[self.pixel_arange, t1]
@@ -133,9 +146,9 @@ class WaveformReducer:
         isinf = np.isinf(peak_time)
         outofrange = (peak_time >= end) | (peak_time < start)
         mask = isinf | outofrange
-        peak_time[mask] = self.t_event
-        peak_amp[mask] = waveforms[mask, self.t_event]
-        return peak_time, peak_amp
+        peak_time[mask] = t_event
+        peak_amp[mask] = waveforms[mask, t_event]
+        return peak_time, peak_amp, t_event, window_start, window_end
 
     def _get_timing(self, waveforms):
         n_pixels, n_samples = waveforms.shape
@@ -146,7 +159,8 @@ class WaveformReducer:
         bad_wf_mask = np.zeros(n_pixels, dtype=np.bool)
 
         with np.errstate(divide='ignore', invalid='ignore'):
-            t_max, amp_max = self.interpolate_wf_peak(waveforms)
+            t_max, amp_max, t_event, window_start, window_end = \
+                self.interpolate_wf_peak(waveforms)
 
         t_pulse = t_max
         amp_pulse = amp_max
@@ -204,16 +218,16 @@ class WaveformReducer:
         rise_time = t90 - t10
 
         if self.plot:
-            ipulse = np.argmax(waveforms[:, self.t_event])
-            ilow = np.argmin(waveforms[:, self.t_event])
+            ipulse = np.argmax(waveforms[:, t_event])
+            ilow = np.argmin(waveforms[:, t_event])
 
             fig = plt.figure(figsize=(13, 5))
             ax_p = fig.add_subplot(1, 2, 1)
             ax_p.set_title("Large Pulse")
             ax_p.plot(waveforms[ipulse])
-            ax_p.axvline(self.t_event, c='black', ls=':', label="t_event")
-            ax_p.axvline(self.window_start, c='blue', ls=':', label="window")
-            ax_p.axvline(self.window_end, c='blue', ls=':')
+            ax_p.axvline(t_event, c='black', ls=':', label="t_event")
+            ax_p.axvline(window_start, c='blue', ls=':', label="window")
+            ax_p.axvline(window_end, c='blue', ls=':')
             ax_p.axvline(t_pulse[ipulse], c='black', ls='-', label="t_pulse")
             ax_p.plot(t_pulse[ipulse], amp_pulse[ipulse], ".")
             ax_p.axvline(t_l[ipulse], c='red', label="FWHM")
@@ -223,9 +237,9 @@ class WaveformReducer:
             ax_l = fig.add_subplot(1, 2, 2)
             ax_l.set_title("Low/No Pulse")
             ax_l.plot(waveforms[ilow])
-            ax_l.axvline(self.t_event, c='black', ls=':')
-            ax_l.axvline(self.window_start, c='blue', ls=':')
-            ax_l.axvline(self.window_end, c='blue', ls=':')
+            ax_l.axvline(t_event, c='black', ls=':')
+            ax_l.axvline(window_start, c='blue', ls=':')
+            ax_l.axvline(window_end, c='blue', ls=':')
             ax_l.axvline(t_pulse[ilow], c='black', ls='-')
             ax_l.plot(t_pulse[ilow], amp_pulse[ilow], ".")
             ax_l.axvline(t_l[ilow], c='red')
