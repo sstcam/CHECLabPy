@@ -76,7 +76,7 @@ class ChargeResolution:
         ))
         self._df_list.append(df)
         self._n_bytes += df.memory_usage(index=True, deep=True).sum()
-        if self._n_bytes > 0.5E9:
+        if self._n_bytes > 1E9:
             self.amalgamate()
 
     def amalgamate(self):
@@ -178,7 +178,7 @@ class ChargeStatistics:
         ))
         self._df_list.append(df)
         self._n_bytes += df.memory_usage(index=True, deep=True).sum()
-        if self._n_bytes > 0.5E9:
+        if self._n_bytes > 1E9:
             self.amalgamate()
 
     def amalgamate(self):
@@ -222,3 +222,11 @@ class ChargeStatistics:
         df_camera['mean'] = mean
         df_camera['std'] = std
         return df, df_camera
+
+
+class IntensityResolution(ChargeResolution):
+    pass
+
+
+class IntensityStatistics(ChargeStatistics):
+    pass
