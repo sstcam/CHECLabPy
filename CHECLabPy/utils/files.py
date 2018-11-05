@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import re
 
 
 def create_directory(directory):
@@ -47,3 +48,21 @@ def open_runlist_dl1(path, open_readers=True):
     if open_readers:
         df['reader'] = [DL1Reader(fp) for fp in df['path'].values]
     return df
+
+
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+
+def natural_keys(text):
+    """
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    """
+    return [atoi(c) for c in re.split('(\d+)', text)]
+
+
+def sort_file_list(file_list):
+    file_list.sort(key=natural_keys)
+    return file_list
