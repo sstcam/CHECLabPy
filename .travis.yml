@@ -32,7 +32,7 @@ before_install:
 - conda update -q conda
 - conda info -a
 
-- conda create --name cta-dev python=$TRAVIS_PYTHON_VERSION pip numpy
+- conda create --name cta-dev python=$TRAVIS_PYTHON_VERSION pip numpy packaging
 - source activate cta-dev
 - pip install pytest
 
