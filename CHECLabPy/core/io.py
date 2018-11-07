@@ -7,6 +7,8 @@ from os import remove
 import json
 from CHECLabPy.utils.files import create_directory
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
+from CHECLabPy import __version__
+from packaging.version import parse
 
 
 class TIOReader:
@@ -239,7 +241,10 @@ class DL1Writer:
             camera_version = self.metadata['camera_version']
             self.monitor.add_metadata(camera_version=camera_version)
             self.monitor.finish()
-        self.add_metadata(n_bytes=self.n_bytes)
+        self.add_metadata(
+            n_bytes=self.n_bytes,
+            version=__version__,
+        )
         self._save_metadata()
         self.store.close()
 
@@ -561,6 +566,13 @@ class DL1Reader:
         self.key = 'data'
         self._monitor = None
 
+        if 'version' not in self.metadata:
+            self.metadata['version'] = '1.0.0'
+        if parse(self.version).release[0] < parse(__version__).release[0]:
+            print("WARNING: DL1 file created with older version of CHECLabPy")
+        elif parse(self.version).release[0] > parse(__version__).release[0]:
+            print("WARNING: DL1 file created with newer version of CHECLabPy")
+
     def __enter__(self):
         return self
 
@@ -638,8 +650,12 @@ class DL1Reader:
         return self.metadata['n_samples']
 
     @property
-    def version(self):
+    def camera_version(self):
         return self.metadata['camera_version']
+
+    @property
+    def version(self):
+        return self.metadata['version']
 
     @staticmethod
     def is_compatible(filepath):
