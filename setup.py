@@ -6,7 +6,7 @@ AUTHOR = "Jason J Watson"
 AUTHOR_EMAIL = "jason.watson@physics.ox.ac.uk"
 
 version = {}
-with open("...sample/version.py") as fp:
+with open("CHECLabPy/version.py") as fp:
     exec(fp.read(), version)
 
 setup(
