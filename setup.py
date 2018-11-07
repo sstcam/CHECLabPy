@@ -4,12 +4,15 @@ PACKAGENAME = "CHECLabPy"
 DESCRIPTION = "Python scripts for reduction and analysis of CHEC lab data"
 AUTHOR = "Jason J Watson"
 AUTHOR_EMAIL = "jason.watson@physics.ox.ac.uk"
-VERSION = "1.0.0"
+
+version = {}
+with open("...sample/version.py") as fp:
+    exec(fp.read(), version)
 
 setup(
     name=PACKAGENAME,
     packages=find_packages(),
-    version=VERSION,
+    version=version['__version__'],
     description=DESCRIPTION,
     license='BSD3',
     install_requires=[
