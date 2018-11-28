@@ -4,7 +4,6 @@ waveforms
 """
 import numpy as np
 from tqdm import tqdm
-from CHECLabPy.waveform_reducers.cross_correlation import CrossCorrelation
 
 
 class BaselineSubtractor:
