@@ -138,7 +138,7 @@ class CameraImage(Plotter):
 
         self._image = val
 
-        self.pixels.set_array(val)
+        self.pixels.set_array(np.ma.masked_invalid(val))
         self.pixels.changed()
         if self.autoscale:
             self.pixels.autoscale() # Updates the colorbar
