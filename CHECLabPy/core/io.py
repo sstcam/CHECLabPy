@@ -580,6 +580,10 @@ class DL1Reader:
         return self.store.get_storer(self.key).attrs.metadata
 
     @property
+    def config(self):
+        return self.store.get_storer(self.key).attrs.config
+
+    @property
     def columns(self):
         return self.store.get_storer(self.key).attrs.non_index_axes[0][1]
 
@@ -661,7 +665,7 @@ class DL1Reader:
     def get_sn(self, tm):
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
-        return self.metadata["TM{}_SN".format(tm)]
+        return self.store.get_storer('data').attrs.sn["TM{}_SN".format(tm)]
 
     def load_entire_table(self, force=False):
         """
