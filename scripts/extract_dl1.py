@@ -1,15 +1,14 @@
 """
 Executable for processing the R1 waveforms, and storing the reduced parameters
-into a HDF5 file, openable as a `pandas.DataFrame`.
+into a HDF5 file, readable as a `pandas.DataFrame`.
 """
 import argparse
 from argparse import ArgumentDefaultsHelpFormatter as Formatter
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import json
 from CHECLabPy.core.io import ReaderR1, DL1Writer
-from CHECLabPy.core.factory import WaveformReducerFactory
+from CHECLabPy.core.chain import WaveformReducerChain
 from CHECLabPy.utils.waveform import BaselineSubtractor
 
 
@@ -28,22 +27,9 @@ def main():
                              'not specified)')
     parser.add_argument('-n', '--maxevents', dest='max_events', action='store',
                         help='Number of events to process', type=int)
-    parser.add_argument('-r', '--reducer', dest='reducer', action='store',
-                        default='AverageWF',
-                        choices=WaveformReducerFactory.subclass_names,
-                        help='WaveformReducer to use')
-    parser.add_argument('-c', '--config', dest='configuration',
-                        help="""Configuration to pass to the waveform reducer
-                        (Usage: '{"window_shift":6, "window_size":6}') """)
-    parser.add_argument('-p', '--plot', dest='plot', action='store_true',
-                        help="Plot stages for waveform reducers")
+    parser.add_argument('-c', '--config', dest='config_path',
+                        help="Path to config file")
     args = parser.parse_args()
-    if args.configuration:
-        config = json.loads(args.configuration)
-        config_string = args.configuration
-    else:
-        config = {}
-        config_string = ""
 
     input_paths = args.input_paths
     n_files = len(input_paths)
@@ -58,17 +44,16 @@ def main():
         pixel_array = np.arange(n_pixels)
         camera_version = reader.camera_version
         mapping = reader.mapping
-        if 'reference_pulse_path' not in config:
-            config['reference_pulse_path'] = reader.reference_pulse_path
+        reference_pulse_path = reader.reference_pulse_path
 
         kwargs = dict(
             n_pixels=n_pixels,
             n_samples=n_samples,
-            plot=args.plot,
             mapping=mapping,
-            **config
+            reference_pulse_path=reference_pulse_path,
+            config_path=args.config_path,
         )
-        reducer = WaveformReducerFactory.produce(args.reducer, **kwargs)
+        chain = WaveformReducerChain(**kwargs)
         baseline_subtractor = BaselineSubtractor(reader)
 
         input_path = reader.path
@@ -98,7 +83,7 @@ def main():
                 waveforms_bs = baseline_subtractor.subtract(waveforms)
                 bs = baseline_subtractor.baseline
 
-                params = reducer.process(waveforms_bs)
+                params = chain.process(waveforms_bs)
 
                 df_ev = pd.DataFrame(dict(
                     iev=iev,
@@ -110,10 +95,6 @@ def main():
                     **params
                 ))
                 writer.append_event(df_ev)
-
-            sn_dict = {}
-            for tm in range(n_modules):
-                sn_dict['TM{:02d}_SN'.format(tm)] = reader.get_sn(tm)
 
             metadata = dict(
                 source="CHECLabPy",
@@ -127,12 +108,10 @@ def main():
                 start_time=start_time,
                 end_time=t_cpu,
                 camera_version=camera_version,
-                reducer=reducer.__class__.__name__,
-                configuration=config_string,
-                **sn_dict
             )
-
             writer.add_metadata(**metadata)
+            writer.add_config(**chain.config)
+            writer.add_sn(n_modules, reader.get_sn)
             writer.add_mapping(mapping)
 
 
