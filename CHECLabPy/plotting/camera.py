@@ -117,7 +117,7 @@ class CameraImage(Plotter):
         self.ax.set_xlabel("X position (m)")
         self.ax.set_ylabel("Y position (m)")
         self.ax.autoscale_view()
-        # self.ax.axis('off')
+        self.ax.axis('off')
 
         self.pixel_highlighting = copy(self.pixels)
         self.pixel_highlighting.set_facecolor('none')
