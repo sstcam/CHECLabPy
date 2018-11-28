@@ -25,12 +25,15 @@ def test_waveform_copy():
 
     all_reducers = child_subclasses(WaveformReducer)
     for r in all_reducers:
-        reducer = r(**kwargs)
-        reducer.process(waveforms)
+        try:
+            reducer = r(**kwargs)
+            reducer.process(waveforms)
 
-        if not (waveforms == test_waveforms).all():
-            raise ValueError("WaveformReducer {} alters the waveforms!"
-                             .format(r.__name__))
+            if not (waveforms == test_waveforms).all():
+                raise ValueError("WaveformReducer {} alters the waveforms!"
+                                 .format(r.__name__))
+        except ImportError:
+            continue
 
 
 class ExampleReducer(WaveformReducer):
