@@ -10,7 +10,7 @@ import warnings
 class SpectrumFitterMeta(type):
     def __call__(cls, *args, **kwargs):
         obj = type.__call__(cls, *args, **kwargs)
-        obj.__post_init__()
+        obj._post_init()
         return obj
 
 
@@ -46,7 +46,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         self.n_illuminations = n_illuminations
         self.config_path = config_path
 
-    def __post_init__(self):
+    def _post_init(self):
         if self.config_path:
             self.load_config(self.config_path)
 
@@ -180,8 +180,8 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
                 self.initial[name_i] = initial
                 self.limits["limit_" + name_i] = (lower, upper)
                 self.fix["fix_" + name_i] = fix
-        ds = "minimize_function(" + ", ".join(self.coeff_names) + ")"
-        self.minimize_function.__func__.__doc__ = ds
+        # ds = "minimize_function(" + ", ".join(self.coeff_names) + ")"
+        # self._minimize_function.__func__.__doc__ = ds
 
     def load_config(self, path):
         """
@@ -256,23 +256,22 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         with open(path, 'w') as outfile:
             yaml.safe_dump(data, outfile, default_flow_style=False)
 
-    def apply(self, *spectrum):
+    def apply(self, *charges):
         """
         Fit the spectra
 
         Parameters
         ----------
-        spectrum : list[ndarray]
-            A list of the spectra to fit. Should have a length equal to the
+        charges : list[ndarray]
+            A list of the charges to fit. Should have a length equal to the
             self.n_illuminations.
         """
-        assert len(spectrum) == self.n_illuminations
+        assert len(charges) == self.n_illuminations
         bins = self.nbins
         range_ = self.range
         self.hist = []
-        self.spectra = spectrum
         for i in range(self.n_illuminations):
-            h, e, b = self.get_histogram(spectrum[i], bins, range_)
+            h, e, b = self.get_histogram(charges[i], bins, range_)
             self.hist.append(h)
             self.edges = e
             self.between = b
@@ -280,7 +279,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         self._perform_fit()
 
     @staticmethod
-    def get_histogram(spectrum, bins, range_):
+    def get_histogram(charge, bins, range_):
         """
         Obtain a histogram for the spectrum.
 
@@ -288,7 +287,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
 
         Parameters
         ----------
-        spectrum : ndarray
+        charge : ndarray
         bins
         range_
 
@@ -301,18 +300,12 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         between : ndarray
             X values of the middle of each bin
         """
-        hist, edges = np.histogram(spectrum, bins=bins, range=range_)
+        hist, edges = np.histogram(charge, bins=bins, range=range_)
         between = (edges[1:] + edges[:-1]) / 2
-
-        # zero = between[np.argmax(hist)]
-        # spectrum -= zero
-        #
-        # hist, edges = np.histogram(spectrum, bins=bins, range=range_)
-        # between = (edges[1:] + edges[:-1]) / 2
 
         return hist, edges, between
 
-    def get_histogram_summed(self, spectra, bins, range_):
+    def get_histogram_summed(self, charges, bins, range_):
         """
         Get the histogram including the spectra from all the illuminations.
 
@@ -320,7 +313,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
 
         Parameters
         ----------
-        spectra : list
+        charges : list
         bins
         range_
 
@@ -333,8 +326,8 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         between : ndarray
             X values of the middle of each bin
         """
-        spectra_stacked = np.hstack(spectra)
-        hist, edge, between = self.get_histogram(spectra_stacked, bins, range_)
+        charges_stacked = np.hstack(charges)
+        hist, edge, between = self.get_histogram(charges_stacked, bins, range_)
         return hist, edge, between
 
     def get_fit_summed(self, x, **coeff):
@@ -362,9 +355,10 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         self.p0 = self.initial.copy()
         limits = self.limits.copy()
         fix = self.fix.copy()
-        self.prepare_params(self.p0, limits, fix)
+        self._prepare_params(self.p0, limits, fix)
 
-        m0 = iminuit.Minuit(self.minimize_function, **self.p0, **limits, **fix,
+        m0 = iminuit.Minuit(self._minimize_function,
+                            **self.p0, **limits, **fix,
                             print_level=0, pedantic=False, throw_nan=True,
                             forced_parameters=self.coeff_names)
         m0.migrad()
@@ -375,7 +369,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
             m0.hesse()
         self.errors = m0.errors
 
-    def prepare_params(self, p0, limits, fix):
+    def _prepare_params(self, p0, limits, fix):
         """
         Apply some automation to the contents of initial, limits, and fix
         dictionaries.
@@ -391,7 +385,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         """
         pass
 
-    def minimize_function(self, *args):
+    def _minimize_function(self, *args):
         """
         Function which calculates the likelihood to be minimised.
 
