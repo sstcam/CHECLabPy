@@ -31,7 +31,7 @@ class GentileFitter(SpectrumFitter):
         self.add_parameter("pap", 0.09, 0.01, 0.8)
         self.add_parameter("dap", 0.5, 0, 0.8)
 
-    def prepare_params(self, p0, limits, fix):
+    def _prepare_params(self, p0, limits, fix):
         for i in range(self.n_illuminations):
             norm = 'norm{}'.format(i)
             if p0[norm] is None:
@@ -106,7 +106,7 @@ def pedestal_signal(x, norm, eped, eped_sigma, lambda_):
     eped_sigma : float
         Sigma of the zeroth peak, represents electronic noise of the system
     lambda_ : float
-        Poisson mean
+        Poisson mean (average illumination in p.e.)
 
     Returns
     -------
@@ -144,7 +144,7 @@ def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     spe_sigma : float
         Spread in the number of photo-electrons incident on the MAPMT
     lambda_ : float
-        Poisson mean (illumination in p.e.)
+        Poisson mean (average illumination in p.e.)
     opct : float
         Optical crosstalk probability
     pap : float
@@ -201,7 +201,7 @@ def sipm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct,
     spe_sigma : float
         Spread in the number of photo-electrons incident on the MAPMT
     lambda_ : float
-        Poisson mean (illumination in p.e.)
+        Poisson mean (average illumination in p.e.)
     opct : float
         Optical crosstalk probability
     pap : float
