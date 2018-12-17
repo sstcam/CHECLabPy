@@ -187,7 +187,7 @@ class CameraImage(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def add_text_to_pixel(self, pixel, value, fmt=None, size=3):
+    def add_text_to_pixel(self, pixel, value, fmt=None, size=3, color='w'):
         """
         Add a text label to a single pixel
 
@@ -205,9 +205,9 @@ class CameraImage(Plotter):
         if fmt:
             val = fmt.format(value)
         self.ax.text(pos_x, pos_y, value, fontsize=size,
-                     color='w', ha='center')
+                     color=color, ha='center')
 
-    def add_pixel_text(self, values, fmt=None, size=3):
+    def add_pixel_text(self, values, fmt=None, size=3, color='w'):
         """
         Add a text label to each pixel
 
@@ -221,7 +221,7 @@ class CameraImage(Plotter):
         """
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
-            self.add_text_to_pixel(pixel, values[pixel], fmt, size)
+            self.add_text_to_pixel(pixel, values[pixel], fmt, size, color)
 
     def highlight_pixels(self, pixels, color='g', linewidth=0.5, alpha=0.75):
         """
@@ -459,7 +459,7 @@ class CameraImageImshow(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def add_text_to_pixel(self, pixel, value, fmt=None, size=3):
+    def add_text_to_pixel(self, pixel, value, fmt=None, size=3,color='w'):
         """
         Add a text label to a single pixel
 
@@ -477,9 +477,9 @@ class CameraImageImshow(Plotter):
         if fmt:
             val = fmt.format(value)
         self.ax.text(pos_x, pos_y, value, fontsize=size,
-                     color='w', ha='center')
+                     color=color, ha='center')
 
-    def add_pixel_text(self, values, fmt=None, size=3):
+    def add_pixel_text(self, values, fmt=None, size=3,color='w'):
         """
         Add a text label to each pixel
 
@@ -493,7 +493,7 @@ class CameraImageImshow(Plotter):
         """
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
-            self.add_text_to_pixel(pixel, values[pixel], fmt, size)
+            self.add_text_to_pixel(pixel, values[pixel], fmt, size, color)
 
     def annotate_tm_edge_label(self):
         """
