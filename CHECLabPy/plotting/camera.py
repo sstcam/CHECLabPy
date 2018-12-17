@@ -4,6 +4,7 @@ Plot camera image using just TargetCalib and python
 import numpy as np
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
+from matplotlib.colors import LogNorm
 from CHECLabPy.plotting.setup import Plotter
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 from copy import copy
@@ -153,6 +154,14 @@ class CameraImage(Plotter):
         """
         self.pixels.set_clim(zmin, zmax)
         self.autoscale = False
+
+    def set_log(self):
+        """
+        Set the color scale to be logarithmic
+        """
+        self.pixels.norm = LogNorm()
+        self.pixels.autoscale()
+        self.colorbar.update_bruteforce(self.pixels)
 
     def reset_limits(self):
         """
