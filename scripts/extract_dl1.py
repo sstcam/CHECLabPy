@@ -109,8 +109,11 @@ def main():
                 end_time=t_cpu,
                 camera_version=camera_version,
             )
+            config = chain.config
+            config.pop('mapping', None)
+
             writer.add_metadata(**metadata)
-            writer.add_config(**chain.config)
+            writer.add_config(**config)
             writer.add_sn(n_modules, reader.get_sn)
             writer.add_mapping(mapping)
 

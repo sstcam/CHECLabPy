@@ -72,6 +72,8 @@ class WaveformReducerMeta(type):
 
 
 class WaveformReducer(metaclass=WaveformReducerMeta):
+    columns = None  # Created by metaclass
+
     def __init__(self, n_pixels, n_samples, **kwargs):
         """
         Base class for all WaveformReducers.

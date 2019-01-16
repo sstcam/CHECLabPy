@@ -89,7 +89,6 @@ class WaveformReducerChain:
         self.chain = self._build_chain(n_pixels, n_samples, **config)
 
         self.config = config
-        self.config.pop('mapping', None)
 
     @staticmethod
     def _load_config(path):
