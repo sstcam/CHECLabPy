@@ -69,7 +69,10 @@ class TIOReader:
 
     def _get_event(self, iev):
         self.index = iev
-        self.get_tio_event(iev, self.samples, self.first_cell_ids, self.stale)
+        try: # TODO: Remove try in future version
+            self.get_tio_event(iev, self.samples, self.first_cell_ids, self.stale)
+        except TypeError:
+            raise TypeError("Please update TargetIO")
         self.current_tack = self._reader.fCurrentTimeTack
         self.current_cpu_ns = self._reader.fCurrentTimeNs
         self.current_cpu_s = self._reader.fCurrentTimeSec
