@@ -72,7 +72,12 @@ class TIOReader:
         try: # TODO: Remove try in future version
             self.get_tio_event(iev, self.samples, self.first_cell_ids, self.stale)
         except TypeError:
-            raise TypeError("Please update TargetIO")
+            warnings.warn(
+                "This call to WaveformArrayReader has been deprecated. "
+                "Please update TargetIO",
+                SyntaxWarning
+            )
+            self.get_tio_event(iev, self.samples, self.first_cell_ids)
         self.current_tack = self._reader.fCurrentTimeTack
         self.current_cpu_ns = self._reader.fCurrentTimeNs
         self.current_cpu_s = self._reader.fCurrentTimeSec
