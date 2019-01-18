@@ -53,6 +53,7 @@ class TIOReader:
         self.current_cpu_s = None
 
         self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
+        self.stale = np.zeros(self.n_pixels, dtype=np.uint8)
 
         if self.is_r1:
             self.samples = np.zeros((self.n_pixels, self.n_samples),
@@ -68,7 +69,15 @@ class TIOReader:
 
     def _get_event(self, iev):
         self.index = iev
-        self.get_tio_event(iev, self.samples, self.first_cell_ids)
+        try: # TODO: Remove try in future version
+            self.get_tio_event(iev, self.samples, self.first_cell_ids, self.stale)
+        except TypeError:
+            warnings.warn(
+                "This call to WaveformArrayReader has been deprecated. "
+                "Please update TargetIO",
+                SyntaxWarning
+            )
+            self.get_tio_event(iev, self.samples, self.first_cell_ids)
         self.current_tack = self._reader.fCurrentTimeTack
         self.current_cpu_ns = self._reader.fCurrentTimeNs
         self.current_cpu_s = self._reader.fCurrentTimeSec
