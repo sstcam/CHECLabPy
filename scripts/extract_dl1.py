@@ -28,7 +28,8 @@ def main():
     parser.add_argument('-n', '--maxevents', dest='max_events', action='store',
                         help='Number of events to process', type=int)
     parser.add_argument('-c', '--config', dest='config_path',
-                        help="Path to config file")
+                        help="Path to config file. If no path is given, "
+                             "then the default columns will be stored.")
     args = parser.parse_args()
 
     input_paths = args.input_paths

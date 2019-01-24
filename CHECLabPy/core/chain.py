@@ -81,10 +81,12 @@ class WaveformReducerChain:
             kwargs. Configuration to the `WaveformReducer` can also be
             passed via kwargs.
         """
-        config = {**self.default_columns, **self.default_config, **kwargs}
+        config = {**self.default_config}
         if config_path:
             loaded_config = self._load_config(config_path)
-            config = {**config, **loaded_config}
+            config = {**config, **loaded_config, **kwargs}
+        else:
+            config = {**config, **self.default_columns, **kwargs}
 
         self.chain = self._build_chain(n_pixels, n_samples, **config)
 
