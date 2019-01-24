@@ -3,9 +3,9 @@ import pandas as pd
 
 
 class ChargeResolution:
-    def __init__(self, mc_true=False):
+    def __init__(self, mc_true=True):
         """
-        Calculates the charge resolution with an efficient, low-memory
+        Calculates the charge resolution with an efficient, low-memory,
         interative approach, allowing the contribution of data/events
         without reading the entire dataset into memory.
 
@@ -16,27 +16,29 @@ class ChargeResolution:
 
         A list is filled with a dataframe for each contribution, and only
         amalgamated into a single dataframe (reducing memory) once the memory
-        of the list is becomming large (or at the end of the filling),
+        of the list becomes large (or at the end of the filling),
         reducing the time required to produce the output.
 
         Parameters
         ----------
         mc_true : bool
-            Indicate if the "true charge" values are from the mc files, and
-            therefore are missing the poisson error. The poisson error will
+            Indicate if the "true charge" values are from the sim_telarray
+            files, and therefore without poisson error. The poisson error will
             therefore be included in the charge resolution calculation.
 
         Attributes
         ----------
+        self._mc_true : bool
         self._df_list : list
         self._df : pd.DataFrame
         self._n_bytes : int
             Monitors the number of bytes being held in memory
         """
-        self.mc_true = mc_true
+        self._mc_true = mc_true
         self._df_list = []
         self._df = pd.DataFrame()
         self._n_bytes = 0
+        self._max_bytes = 1E9
 
     @staticmethod
     def rmse_abs(sum_, n):
@@ -76,10 +78,10 @@ class ChargeResolution:
         ))
         self._df_list.append(df)
         self._n_bytes += df.memory_usage(index=True, deep=True).sum()
-        if self._n_bytes > 1E9:
-            self.amalgamate()
+        if self._n_bytes > self._max_bytes:
+            self._amalgamate()
 
-    def amalgamate(self):
+    def _amalgamate(self):
         """
         Concatenate the dataframes inside the list, and sum together
         values per pixel and true charge in order to reduce memory use.
@@ -96,12 +98,12 @@ class ChargeResolution:
 
         Returns
         -------
-        df_pixel : pd.DataFrame
+        df_p : pd.DataFrame
             Dataframe containing the charge resolution per pixel
-        df_camera : pd.DataFrame
+        df_c : pd.DataFrame
             Dataframe containing the charge resolution for the entire camera
         """
-        self.amalgamate()
+        self._amalgamate()
 
         self._df = self._df.loc[self._df['true'] != 0]
 
@@ -109,7 +111,7 @@ class ChargeResolution:
         true = df_p['true'].values
         sum_ = df_p['sum'].values
         n = df_p['n'].values
-        if self.mc_true:
+        if self._mc_true:
             df_p['charge_resolution'] = self.charge_res(true, sum_, n)
             df_p['charge_resolution_abs'] = self.charge_res_abs(true, sum_, n)
         else:
@@ -120,7 +122,7 @@ class ChargeResolution:
         true = df_c['true'].values
         sum_ = df_c['sum'].values
         n = df_c['n'].values
-        if self.mc_true:
+        if self._mc_true:
             df_c['charge_resolution'] = self.charge_res(true, sum_, n)
             df_c['charge_resolution_abs'] = self.charge_res_abs(true, sum_, n)
         else:
@@ -133,7 +135,7 @@ class ChargeResolution:
 class ChargeStatistics:
     def __init__(self):
         """
-        Calculates the charge statistics with an efficient, low-memory
+        Calculates the charge statistics with an efficient, low-memory,
         interative approach, allowing the contribution of data/events
         without reading the entire dataset into memory.
 
@@ -142,7 +144,7 @@ class ChargeStatistics:
 
         A list is filled with a dataframe for each contribution, and only
         amalgamated into a single dataframe (reducing memory) once the memory
-        of the list is becomming large (or at the end of the filling),
+        of the list becomes large (or at the end of the filling),
         reducing the time required to produce the output.
 
         Attributes
@@ -155,6 +157,7 @@ class ChargeStatistics:
         self._df_list = []
         self._df = pd.DataFrame()
         self._n_bytes = 0
+        self._max_bytes = 1E9
 
     def add(self, pixel, amplitude, charge):
         """
@@ -178,10 +181,10 @@ class ChargeStatistics:
         ))
         self._df_list.append(df)
         self._n_bytes += df.memory_usage(index=True, deep=True).sum()
-        if self._n_bytes > 1E9:
-            self.amalgamate()
+        if self._n_bytes > self._max_bytes:
+            self._amalgamate()
 
-    def amalgamate(self):
+    def _amalgamate(self):
         """
         Concatenate the dataframes inside the list, and sum together
         values per pixel and true charge in order to reduce memory use.
@@ -198,30 +201,30 @@ class ChargeStatistics:
 
         Returns
         -------
-        df_pixel : pd.DataFrame
+        df_p : pd.DataFrame
             Dataframe containing the charge statistics per pixel
-        df_camera : pd.DataFrame
+        df_c : pd.DataFrame
             Dataframe containing the charge statistics for the entire camera
         """
-        self.amalgamate()
-        df = self._df.copy()
-        sum_ = df['sum'].values
-        sum2 = df['sum2'].values
-        n = df['n'].values
+        self._amalgamate()
+        df_p = self._df.copy()
+        sum_ = df_p['sum'].values
+        sum2 = df_p['sum2'].values
+        n = df_p['n'].values
         mean = sum_ / n
         std = np.sqrt((sum2 / n) - (mean**2))
-        df['mean'] = mean
-        df['std'] = std
-        df_camera = self._df.copy().groupby('amplitude').sum().reset_index()
-        df_camera = df_camera.drop(columns='pixel')
-        sum_ = df_camera['sum'].values
-        sum2 = df_camera['sum2'].values
-        n = df_camera['n'].values
+        df_p['mean'] = mean
+        df_p['std'] = std
+        df_c = self._df.copy().groupby('amplitude').sum().reset_index()
+        df_c = df_c.drop(columns='pixel')
+        sum_ = df_c['sum'].values
+        sum2 = df_c['sum2'].values
+        n = df_c['n'].values
         mean = sum_ / n
         std = np.sqrt((sum2 / n) - (mean**2))
-        df_camera['mean'] = mean
-        df_camera['std'] = std
-        return df, df_camera
+        df_c['mean'] = mean
+        df_c['std'] = std
+        return df_p, df_c
 
 
 class IntensityResolution(ChargeResolution):

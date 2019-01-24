@@ -53,6 +53,7 @@ class TIOReader:
         self.current_cpu_s = None
 
         self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
+        self.stale = np.zeros(self.n_pixels, dtype=np.uint8)
 
         if self.is_r1:
             self.samples = np.zeros((self.n_pixels, self.n_samples),
@@ -68,7 +69,15 @@ class TIOReader:
 
     def _get_event(self, iev):
         self.index = iev
-        self.get_tio_event(iev, self.samples, self.first_cell_ids)
+        try: # TODO: Remove try in future version
+            self.get_tio_event(iev, self.samples, self.first_cell_ids, self.stale)
+        except TypeError:
+            warnings.warn(
+                "This call to WaveformArrayReader has been deprecated. "
+                "Please update TargetIO",
+                SyntaxWarning
+            )
+            self.get_tio_event(iev, self.samples, self.first_cell_ids)
         self.current_tack = self._reader.fCurrentTimeTack
         self.current_cpu_ns = self._reader.fCurrentTimeNs
         self.current_cpu_s = self._reader.fCurrentTimeSec
@@ -79,7 +88,24 @@ class TIOReader:
             yield self._get_event(iev)
 
     def __getitem__(self, iev):
-        return np.copy(self._get_event(iev))
+        if isinstance(iev, slice):
+            ev_list = [self[ii] for ii in range(*iev.indices(self.n_events))]
+            return np.array(ev_list)
+        elif isinstance(iev, list):
+            ev_list = [self[ii] for ii in iev]
+            return np.array(ev_list)
+        elif isinstance(iev, int):
+            if iev < 0:
+                iev += self.n_events
+            if iev < 0 or iev >= len(self):
+                raise IndexError("The requested event ({}) is out of range"
+                                 .format(iev))
+            return np.copy(self._get_event(iev))
+        else:
+            raise TypeError("Invalid argument type")
+
+    def __len__(self):
+        return self.n_events
 
     class _PixelWaveforms:
         def __init__(self, tio_reader):
