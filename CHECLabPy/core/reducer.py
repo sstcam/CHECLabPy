@@ -74,7 +74,8 @@ class WaveformReducerMeta(type):
 class WaveformReducer(metaclass=WaveformReducerMeta):
     columns = None  # Created by metaclass
 
-    def __init__(self, n_pixels, n_samples, **kwargs):
+    def __init__(self, n_pixels, n_samples,
+                 _disable_by_default=False, **kwargs):
         """
         Base class for all WaveformReducers.
 
@@ -86,6 +87,8 @@ class WaveformReducer(metaclass=WaveformReducerMeta):
         n_samples : int
             Number of samples in the data to be processed by the
             `WaveformReducer`
+        _disable_by_default : bool
+            Set all columns to be inactive by default
         kwargs
             Columns can be deactivated by passing their "name"=False via the
             kwargs. Configuration to the `WaveformReducer` can also be
@@ -97,19 +100,23 @@ class WaveformReducer(metaclass=WaveformReducerMeta):
         self.n_samples = n_samples
         self.kwargs = kwargs
 
-        self.active_columns = self.get_active_columns(**kwargs)
+        self.active_columns = self.get_active_columns(
+            _disable_by_default=_disable_by_default, **kwargs
+        )
 
         if len(self.columns) == 0:
             self.process = _process_null
 
     @classmethod
-    def get_active_columns(cls, **kwargs):
+    def get_active_columns(cls, _disable_by_default=False, **kwargs):
         """
         Parse the `kwargs` to check if the user has requested a column to be
         deactivated.
 
         Parameters
         ----------
+        _disable_by_default : bool
+            Set all columns to be inactive by default
         kwargs
             Columns can be deactivated by passing their "name"=False via the
             kwargs.
@@ -119,7 +126,8 @@ class WaveformReducer(metaclass=WaveformReducerMeta):
         list
             List of the active columns
         """
-        return [col for col in cls.columns if kwargs.get(col, True)]
+        default = not _disable_by_default
+        return [col for col in cls.columns if kwargs.get(col, default)]
 
     def _prepare(self, waveforms):
         """

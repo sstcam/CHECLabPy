@@ -22,10 +22,14 @@ def test_chain():
             config[c] = False
 
     chain = WaveformReducerChain(1, 1, **config)
+    assert len(chain.chain) == 0
+    assert chain.process(2) == dict()
+
+    chain = WaveformReducerChain(1, 1, test=True, test2=True, **config)
     assert len(chain.chain) == 2
     assert chain.process(2) == dict(test=2, test2=2)
 
-    chain = WaveformReducerChain(1, 1, test=False, **config)
+    chain = WaveformReducerChain(1, 1, test2=True, **config)
     assert len(chain.chain) == 1
     assert chain.process(2) == dict(test2=2)
 

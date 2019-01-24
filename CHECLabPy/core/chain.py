@@ -137,11 +137,12 @@ class WaveformReducerChain:
         """
         print("Building WaveformReducerChain:")
         all_reducers = child_subclasses(WaveformReducer)
+        reducer_config = {**config, '_disable_by_default': True}
 
         chain = []
         for r in all_reducers:
-            if len(r.get_active_columns(**config)) > 0:
-                reducer = r(n_pixels, n_samples, **config)
+            if len(r.get_active_columns(**reducer_config)) > 0:
+                reducer = r(n_pixels, n_samples, **reducer_config)
                 chain.append(reducer.process)
                 for c in reducer.active_columns:
                     print("\t{}.{}".format(reducer.__class__.__name__, c))
