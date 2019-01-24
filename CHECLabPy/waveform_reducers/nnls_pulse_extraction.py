@@ -158,33 +158,33 @@ class NNLSPulseExtraction(WaveformReducer):
         self.npulses = npulses
         self.errata = er
 
-    # @column
-    # def charge_nnls(self):
-    #     return self.charge
-    #
-    # @column
-    # def nnls_tcharge(self):
-    #     return self.tcharge
-    #
-    # @column
-    # def nnls_tmcharge(self):
-    #     return self.tmcharge
-    #
-    # @column
-    # def nnls_tccharge(self):
-    #     return self.tccharge
-    #
-    # @column
-    # def nnls_norm(self):
-    #     return self.norm
-    #
-    # @column
-    # def nnls_npulses(self):
-    #     return self.npulses
-    #
-    # @column
-    # def nnls_errata(self):
-    #     return self.errata
+    @column
+    def charge_nnls(self):
+        return self.charge
+
+    @column
+    def nnls_tcharge(self):
+        return self.tcharge
+
+    @column
+    def nnls_tmcharge(self):
+        return self.tmcharge
+
+    @column
+    def nnls_tccharge(self):
+        return self.tccharge
+
+    @column
+    def nnls_norm(self):
+        return self.norm
+
+    @column
+    def nnls_npulses(self):
+        return self.npulses
+
+    @column
+    def nnls_errata(self):
+        return self.errata
 
 
 @jit()
