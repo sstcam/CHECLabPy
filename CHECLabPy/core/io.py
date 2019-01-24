@@ -88,7 +88,24 @@ class TIOReader:
             yield self._get_event(iev)
 
     def __getitem__(self, iev):
-        return np.copy(self._get_event(iev))
+        if isinstance(iev, slice):
+            ev_list = [self[ii] for ii in range(*iev.indices(self.n_events))]
+            return np.array(ev_list)
+        elif isinstance(iev, list):
+            ev_list = [self[ii] for ii in iev]
+            return np.array(ev_list)
+        elif isinstance(iev, int):
+            if iev < 0:
+                iev += self.n_events
+            if iev < 0 or iev >= len(self):
+                raise IndexError("The requested event ({}) is out of range"
+                                 .format(iev))
+            return np.copy(self._get_event(iev))
+        else:
+            raise TypeError("Invalid argument type")
+
+    def __len__(self):
+        return self.n_events
 
     class _PixelWaveforms:
         def __init__(self, tio_reader):
