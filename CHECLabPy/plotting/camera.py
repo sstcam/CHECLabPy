@@ -10,66 +10,6 @@ from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 from copy import copy
 
 
-class CameraPlotter(Plotter):
-    def __init__(self, mapping, talk=False):
-        """
-        Plot values in a camera image
-
-        Parameters
-        ----------
-        mapping : pandas.DataFrame
-            The mapping for the pixels stored in a pandas DataFrame. Can be
-            obtained from either of these options:
-
-            CHECLabPy.io.Reader.mapping
-            CHECLabPy.io.ReaderR0.mapping
-            CHECLabPy.io.ReaderR1.mapping
-            CHECLabPy.io.DL1Reader.mapping
-        """
-        super().__init__(talk=talk)
-        print("CameraPlotter is deprecated, consider switching to CameraImage")
-        self.mapping = mapping
-
-        self.row = self.mapping['row'].values
-        self.col = self.mapping['col'].values
-        self.n_rows = self.mapping.metadata['n_rows']
-        self.n_cols = self.mapping.metadata['n_columns']
-
-        self.data = np.ma.zeros((self.n_rows, self.n_cols))
-        self.image = self.ax.imshow(self.data, origin='lower')
-        self.colorbar = self.fig.colorbar(self.image)
-        self.ax.axis('off')
-
-    @staticmethod
-    def figsize(scale=1.5):
-        super(CameraPlotter, CameraPlotter).figsize(scale)
-
-    def set(self, data):
-        self.data = np.ma.zeros((self.n_rows, self.n_cols))
-        self.data[self.row, self.col] = data
-        if (self.n_rows == 48) & (self.n_cols == 48):
-            self.data[0:8, 40:48] = np.ma.masked
-            self.data[0:8, 0:8] = np.ma.masked
-            self.data[40:48, 0:8] = np.ma.masked
-            self.data[40:48, 40:48] = np.ma.masked
-        self.image.set_data(self.data)
-        self.image.autoscale()
-
-    def annotate(self):
-        axl = self.mapping.metadata['fOTUpCol_l']
-        ayl = self.mapping.metadata['fOTUpRow_l']
-        adx = self.mapping.metadata['fOTUpCol_u'] - axl
-        ady = self.mapping.metadata['fOTUpRow_u'] - ayl
-        self.ax.arrow(axl, ayl, adx, ady, head_width=1, head_length=1, fc='r',
-                      ec='r')
-        text = "ON-Telescope UP"
-        self.ax.text(axl, ayl, text, fontsize=8, color='r', ha='center',
-                     va='bottom')
-
-    def plot(self, data):
-        self.set(data)
-
-
 class CameraImage(Plotter):
     def __init__(self, xpix, ypix, size, **kwargs):
         """
@@ -127,7 +67,7 @@ class CameraImage(Plotter):
 
     @staticmethod
     def figsize(scale=1.5):
-        super(CameraPlotter, CameraPlotter).figsize(scale)
+        super(CameraImage, CameraImage).figsize(scale)
 
     @property
     def image(self):
@@ -142,7 +82,7 @@ class CameraImage(Plotter):
         self.pixels.set_array(np.ma.masked_invalid(val))
         self.pixels.changed()
         if self.autoscale:
-            self.pixels.autoscale() # Updates the colorbar
+            self.pixels.autoscale()  # Updates the colorbar
         self.ax.figure.canvas.draw()
 
     def add_colorbar(self, label=''):
@@ -187,7 +127,7 @@ class CameraImage(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def add_text_to_pixel(self, pixel, value, fmt=None, size=3, color='w'):
+    def add_text_to_pixel(self, pixel, value, size=3, color='w', **kwargs):
         """
         Add a text label to a single pixel
 
@@ -195,33 +135,35 @@ class CameraImage(Plotter):
         ----------
         pixel : int
         value : str or float
-        fmt : str
-            String/float formatting expression
         size : int
             Font size
+        color : str
+            Color of the text
+        kwargs
+            Named arguments to pass to matplotlib.pyplot.text
         """
         pos_x = self.xpix[pixel]
         pos_y = self.ypix[pixel]
-        if fmt:
-            val = fmt.format(value)
-        self.ax.text(pos_x, pos_y, value, fontsize=size,
-                     color=color, ha='center')
+        self.ax.text(pos_x, pos_y, value,
+                     fontsize=size, color=color, ha='center', **kwargs)
 
-    def add_pixel_text(self, values, fmt=None, size=3, color='w'):
+    def add_pixel_text(self, values, size=3, color='w', **kwargs):
         """
         Add a text label to each pixel
 
         Parameters
         ----------
         values : ndarray
-        fmt : str
-            String/float formatting expression
         size : int
             Font size
+        color : str
+            Color of the text
+        kwargs
+            Named arguments to pass to matplotlib.pyplot.text
         """
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
-            self.add_text_to_pixel(pixel, values[pixel], fmt, size, color)
+            self.add_text_to_pixel(pixel, values[pixel], size, color, **kwargs)
 
     def highlight_pixels(self, pixels, color='g', linewidth=0.5, alpha=0.75):
         """
@@ -241,9 +183,9 @@ class CameraImage(Plotter):
             The transparency
         """
 
-        l = np.zeros_like(self.image)
-        l[pixels] = linewidth
-        self.pixel_highlighting.set_linewidth(l)
+        lw_array = np.zeros_like(self.image)
+        lw_array[pixels] = linewidth
+        self.pixel_highlighting.set_linewidth(lw_array)
         self.pixel_highlighting.set_alpha(alpha)
         self.pixel_highlighting.set_edgecolor(color)
         # self._update()
@@ -390,7 +332,7 @@ class CameraImageImshow(Plotter):
 
     @staticmethod
     def figsize(scale=1.5):
-        super(CameraPlotter, CameraPlotter).figsize(scale)
+        super(CameraImageImshow, CameraImageImshow).figsize(scale)
 
     @property
     def image(self):
@@ -459,7 +401,7 @@ class CameraImageImshow(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def add_text_to_pixel(self, pixel, value, fmt=None, size=3,color='w'):
+    def add_text_to_pixel(self, pixel, value, size=3, color='w', **kwargs):
         """
         Add a text label to a single pixel
 
@@ -467,33 +409,35 @@ class CameraImageImshow(Plotter):
         ----------
         pixel : int
         value : str or float
-        fmt : str
-            String/float formatting expression
         size : int
             Font size
+        color : str
+            Color of the text
+        kwargs
+            Named arguments to pass to matplotlib.pyplot.text
         """
         pos_x = self.col[pixel]
         pos_y = self.row[pixel]
-        if fmt:
-            val = fmt.format(value)
-        self.ax.text(pos_x, pos_y, value, fontsize=size,
-                     color=color, ha='center')
+        self.ax.text(pos_x, pos_y, value,
+                     fontsize=size, color=color, ha='center', **kwargs)
 
-    def add_pixel_text(self, values, fmt=None, size=3,color='w'):
+    def add_pixel_text(self, values, size=3, color='w', **kwargs):
         """
         Add a text label to each pixel
 
         Parameters
         ----------
         values : ndarray
-        fmt : str
-            String/float formatting expression
         size : int
             Font size
+        color : str
+            Color of the text
+        kwargs
+            Named arguments to pass to matplotlib.pyplot.text
         """
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
-            self.add_text_to_pixel(pixel, values[pixel], fmt, size, color)
+            self.add_text_to_pixel(pixel, values[pixel], size, color, **kwargs)
 
     def annotate_tm_edge_label(self):
         """
