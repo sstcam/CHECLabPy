@@ -1,6 +1,6 @@
 """
 Executable for processing the R1 waveforms, and storing the reduced parameters
-into a HDF5 file, openable as a `pandas.DataFrame`.
+into a HDF5 file, readable as a `pandas.DataFrame`.
 """
 import argparse
 from argparse import ArgumentDefaultsHelpFormatter as Formatter
@@ -8,48 +8,27 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import json
-from CHECLabPy.core.io import DL1Writer
+from CHECLabPy.core.io import SimtelReader, HDF5Writer
 from CHECLabPy.core.factory import WaveformReducerFactory
-from ctapipe.calib import HESSIOR1Calibrator
-from ctapipe.io import HESSIOEventSource, EventSeeker
+from CHECLabPy.utils.waveform import BaselineSubtractor
 from target_calib import CameraConfiguration
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 
 
-class BaselineSubtractor:
-    """
-    Keep track of the baseline for the previous `n_base` events, therefore
-    keeping a "rolling average" of the baseline to subtract.
-    """
-    def __init__(self, source, n_base=50, n_base_samples=16):
-        self.n_base = n_base
-        self.n_base_samples = n_base_samples
-        self.iev = 0
-
-        first_event = source[0]
-        tels = list(first_event.r0.tels_with_data)
-        _, n_pixels, n_samples = first_event.r0.tel[tels[0]].waveform.shape
-        r1 = HESSIOR1Calibrator()
-
-        self.baseline_waveforms = np.zeros((n_base, n_pixels, n_base_samples))
-        for event in source:
-            r1.calibrate(event)
-            waveforms = event.r1.tel[tels[0]].waveform[0]
-            ev = event.count
-            if ev >= n_base:
-                break
-            self.baseline_waveforms[ev] = waveforms[:, :n_base_samples]
-        self.baseline = np.mean(self.baseline_waveforms, axis=(0, 2))
-
-    def update_baseline(self, waveforms):
-        entry = self.iev % self.n_base
-        self.baseline_waveforms[entry] = waveforms[:, :self.n_base_samples]
-        self.baseline = np.mean(self.baseline_waveforms, axis=(0, 2))
-        self.iev += 1
-
-    def subtract(self, waveforms):
-        self.update_baseline(waveforms)
-        return waveforms - self.baseline[:, None]
+class DL1Writer(HDF5Writer):
+    @staticmethod
+    def _prepare_before_append(df):
+        df_float = df.select_dtypes(
+            include=['float']
+        ).apply(pd.to_numeric, downcast='float')
+        df[df_float.columns] = df_float
+        df['iev'] = df['iev'].astype(np.uint32)
+        if 'pixel' in df.columns:
+            df['pixel'] = df['pixel'].astype(np.uint32)
+            df = df.sort_values(["iev", "pixel"])
+        else:
+            df = df.sort_values(["iev"])
+        return df
 
 
 def main():
@@ -59,8 +38,6 @@ def main():
                                      formatter_class=Formatter)
     parser.add_argument('-f', '--files', dest='input_paths', nargs='+',
                         help='path to the TIO r1 run files')
-    parser.add_argument('-m', '--monitor', dest='monitor', action='store',
-                        help='path to the monitor file (OPTIONAL)')
     parser.add_argument('-o', '--output', dest='output_path', action='store',
                         help='path to store the output HDF5 dl1 file '
                              '(OPTIONAL, will be automatically set if '
@@ -88,31 +65,16 @@ def main():
     n_files = len(input_paths)
     for i_path, input_path in enumerate(input_paths):
         print("PROGRESS: Reducing file {}/{}".format(i_path + 1, n_files))
-
-        kwargs = dict(input_url=input_path, max_events=args.max_events)
-        reader = HESSIOEventSource(**kwargs)  # TODO: Use CHECLabPy.core.io_simtel.py
-        seeker = EventSeeker(reader)
-
-        n_events = len(seeker)
-
-        first_event = seeker[0]
-        tels = list(first_event.r0.tels_with_data)
-        _, n_pixels, n_samples = first_event.r0.tel[tels[0]].waveform.shape
-        n_modules = 32
-        n_cells = 1
+        reader = SimtelReader(input_path, args.max_events)
+        n_events = reader.n_events
+        n_pixels = reader.n_pixels
+        n_samples = reader.n_samples
+        expectedrows = n_events * n_pixels
+        expectedrows_mc = n_events
         pixel_array = np.arange(n_pixels)
-        camera_version = "1.1.0"
-        camera_config = CameraConfiguration(camera_version)
-        tc_mapping = camera_config.GetMapping(n_modules == 1)
-        mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
-        pix_x = first_event.inst.subarray.tel[tels[0]].camera.pix_x.value
-        pix_y = first_event.inst.subarray.tel[tels[0]].camera.pix_y.value
-        mapping['xpix'] = pix_x
-        mapping['ypix'] = pix_y
-
+        mapping = reader.mapping
         if 'reference_pulse_path' not in config:
-            reference_pulse_path = camera_config.GetReferencePulsePath()
-            config['reference_pulse_path'] = reference_pulse_path
+            config['reference_pulse_path'] = reader.reference_pulse_path
 
         kwargs = dict(
             n_pixels=n_pixels,
@@ -122,28 +84,21 @@ def main():
             **config
         )
         reducer = WaveformReducerFactory.produce(args.reducer, **kwargs)
-        baseline_subtractor = BaselineSubtractor(seeker)
+        baseline_subtractor = BaselineSubtractor(reader)
 
-        input_path = reader.input_url
+        input_path = reader.path
         output_path = args.output_path
         if not output_path:
-            output_path = input_path.replace(".simtel.gz", "_dl1.h5")
-            output_path = output_path.replace("run", "Run")
+            output_path = input_path.replace('.simtel.gz', '.h5')
 
-        r1 = HESSIOR1Calibrator()
-
-        with DL1Writer(output_path, n_events*n_pixels, args.monitor) as writer:
+        with DL1Writer(output_path) as writer:
             t_cpu = 0
             start_time = 0
             desc = "Processing events"
-            for event in tqdm(seeker, total=n_events, desc=desc):
-                iev = event.count
-
-                r1.calibrate(event)
-                waveforms = event.r1.tel[tels[0]].waveform[0]
-                mc_true = event.mc.tel[tels[0]].photo_electron_image
-
-                t_cpu = pd.to_datetime(event.trig.gps_time.value, unit='s')
+            for waveforms in tqdm(reader, total=n_events, desc=desc):
+                iev = reader.index
+                t_cpu = reader.t_cpu
+                mc_true = reader.mc_true
 
                 if not start_time:
                     start_time = t_cpu
@@ -153,41 +108,43 @@ def main():
 
                 params = reducer.process(waveforms_bs)
 
-                df_ev = pd.DataFrame(dict(
+                df = pd.DataFrame(dict(
                     iev=iev,
                     pixel=pixel_array,
-                    first_cell_id=0,
                     t_cpu=t_cpu,
-                    t_tack=0,
                     baseline_subtracted=bs,
-                    **params,
-                    mc_true=mc_true
+                    mc_true=mc_true,
+                    **params
                 ))
-                writer.append_event(df_ev)
-
-            sn_dict = {}
-            for tm in range(n_modules):
-                sn_dict['TM{:02d}_SN'.format(tm)] = "NaN"
+                writer.append(
+                    df, key='data', expectedrows=expectedrows
+                )
+                writer.append(
+                    pd.DataFrame([reader.mc]), key='mc',
+                    expectedrows=expectedrows_mc
+                )
+                writer.append(
+                    pd.DataFrame([reader.pointing]), key='pointing',
+                    expectedrows=expectedrows_mc
+                )
 
             metadata = dict(
                 source="CHECLabPy",
+                obs_id=reader.obs_id,
                 date_generated=pd.datetime.now(),
                 input_path=input_path,
                 n_events=n_events,
-                n_modules=n_modules,
                 n_pixels=n_pixels,
                 n_samples=n_samples,
-                n_cells=n_cells,
                 start_time=start_time,
                 end_time=t_cpu,
-                camera_version=camera_version,
                 reducer=reducer.__class__.__name__,
                 configuration=config_string,
-                **sn_dict
             )
 
-            writer.add_metadata(**metadata)
             writer.add_mapping(mapping)
+            writer.add_metadata(name='metadata', **metadata)
+            writer.add_metadata(name='config', **config)
 
 
 if __name__ == '__main__':
