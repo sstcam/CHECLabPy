@@ -1,5 +1,3 @@
-from ctapipe.calib import HESSIOR1Calibrator
-from ctapipe.io import SimTelEventSource, EventSeeker
 from target_calib import CameraConfiguration
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 import pandas as pd
@@ -7,6 +5,8 @@ import pandas as pd
 
 class SimtelReader:
     def __init__(self, path, max_events=None):
+        from ctapipe.calib import HESSIOR1Calibrator
+        from ctapipe.io import SimTelEventSource, EventSeeker
         self.path = path
         reader = SimTelEventSource(input_url=path, max_events=max_events)
         self.seeker = EventSeeker(reader)
@@ -34,7 +34,7 @@ class SimtelReader:
         self.gps_time = None
         self.mc_true = None
         self.mc = None
-        self.pointing=None
+        self.pointing = None
 
     @property
     def n_events(self):
@@ -61,7 +61,7 @@ class SimtelReader:
                 core_y=event.mc.core_y.value,
                 h_first_int=event.mc.h_first_int.value,
                 x_max=event.mc.x_max.value,
-                shower_primary_id = event.mc.shower_primary_id
+                shower_primary_id=event.mc.shower_primary_id
             )
 
             self.pointing = dict(
