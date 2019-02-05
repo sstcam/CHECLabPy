@@ -1,5 +1,4 @@
 from CHECLabPy.core import child_subclasses
-from CHECLabPy.core.reducer import WaveformReducer
 from CHECLabPy.core.spectrum_fitter import SpectrumFitter
 
 
@@ -25,12 +24,6 @@ class Factory:
             raise KeyError(msg)
 
         return product(*args, **kwargs)
-
-
-class WaveformReducerFactory(Factory):
-    import CHECLabPy.waveform_reducers
-    subclasses = child_subclasses(WaveformReducer)
-    subclass_names = [c.__name__ for c in subclasses]
 
 
 class SpectrumFitterFactory(Factory):
