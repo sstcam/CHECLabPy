@@ -145,6 +145,7 @@ def main():
             writer.add_mapping(mapping)
             writer.add_metadata(name='metadata', **metadata)
             writer.add_metadata(name='config', **config)
+            writer.add_metadata(name='mcheader', **reader.mcheader)
 
 
 if __name__ == '__main__':

@@ -35,6 +35,7 @@ class SimtelReader:
         self.mc_true = None
         self.mc = None
         self.pointing = None
+        self.mcheader = None
 
     @property
     def n_events(self):
@@ -73,6 +74,46 @@ class SimtelReader:
                 azimuth_cor=event.mc.tel[self.tel].azimuth_cor,
                 altitude_cor=event.mc.tel[self.tel].altitude_cor,
             )
+
+            if self.index == 0:
+                mch = event.mcheader
+                self.mcheader = dict(
+                    corsika_version=mch.corsika_version,
+                    simtel_version=mch.simtel_version,
+                    energy_range_min=mch.energy_range_min.value,
+                    energy_range_max=mch.energy_range_max.value,
+                    prod_site_B_total=mch.prod_site_B_total.value,
+                    prod_site_B_declination=mch.prod_site_B_declination.value,
+                    prod_site_B_inclination=mch.prod_site_B_inclination.value,
+                    prod_site_alt=mch.prod_site_alt.value,
+                    spectral_index=mch.spectral_index,
+                    shower_prog_start=mch.shower_prog_start,
+                    shower_prog_id=mch.shower_prog_id,
+                    detector_prog_start=mch.detector_prog_start,
+                    detector_prog_id=mch.detector_prog_id,
+                    num_showers=mch.num_showers,
+                    shower_reuse=mch.shower_reuse,
+                    max_alt=mch.max_alt.value,
+                    min_alt=mch.min_alt.value,
+                    max_az=mch.max_az.value,
+                    min_az=mch.min_az.value,
+                    diffuse=mch.diffuse,
+                    max_viewcone_radius=mch.max_viewcone_radius.value,
+                    min_viewcone_radius=mch.min_viewcone_radius.value,
+                    max_scatter_range=mch.max_scatter_range.value,
+                    min_scatter_range=mch.min_scatter_range.value,
+                    core_pos_mode=mch.core_pos_mode,
+                    injection_height=mch.injection_height.value,
+                    atmosphere=mch.atmosphere,
+                    corsika_iact_options=mch.corsika_iact_options,
+                    corsika_low_E_model=mch.corsika_low_E_model,
+                    corsika_high_E_model=mch.corsika_high_E_model,
+                    corsika_bunchsize=mch.corsika_bunchsize,
+                    corsika_wlen_min=mch.corsika_wlen_min.value,
+                    corsika_wlen_max=mch.corsika_wlen_max.value,
+                    corsika_low_E_detail=mch.corsika_low_E_detail,
+                    corsika_high_E_detail=mch.corsika_high_E_detail,
+                )
 
             yield waveforms
 
