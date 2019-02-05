@@ -7,10 +7,34 @@ import pandas as pd
 
 
 class TIOReader:
-    """
-    Reader for the R0 and R1 tio files
-    """
     def __init__(self, path, max_events=None):
+        """
+        Utilies TargetIO to read R0 and R1 tio files. Enables easy access to
+        the waveforms for anaylsis.
+
+        Waveforms can be read from the file by either indexing this reader or
+        iterating over it:
+
+        >>> path = "/path/to/file_r0.tio"
+        >>> reader = TIOReader(path)
+        >>> wf = reader[3]  # Obtain the waveforms for the third event
+
+        >>> path = "/path/to/file_r0.tio"
+        >>> reader = TIOReader(path)
+        >>> wfs = reader[:10]  # Obtain the waveforms for the first 10 events
+
+        >>> path = "/path/to/file_r0.tio"
+        >>> reader = TIOReader(path)
+        >>> for wf in reader:  # Iterate over all events in the file
+        >>>    print(wf)
+
+        Parameters
+        ----------
+        path : str
+            Path to the _r0.tio or _r1.tio file
+        max_events : int
+            Maximum number of events to read from the file
+        """
         try:
             from target_io import WaveformArrayReader
             from target_calib import CameraConfiguration
@@ -62,8 +86,9 @@ class TIOReader:
 
     def _get_event(self, iev):
         self.index = iev
-        try: # TODO: Remove try in future version
-            self.get_tio_event(iev, self.samples, self.first_cell_ids, self.stale)
+        try:  # TODO: Remove try in future version
+            self.get_tio_event(iev, self.samples, self.first_cell_ids,
+                               self.stale)
         except TypeError:
             warnings.warn(
                 "This call to WaveformArrayReader has been deprecated. "
@@ -112,6 +137,19 @@ class TIOReader:
         return get_clp_mapping_from_tc_mapping(self.tc_mapping)
 
     def get_sn(self, tm):
+        """
+        Get the SN of the TARGET module in a slot
+
+        Parameters
+        ----------
+        tm : int
+            Slot number for the TARGET module
+
+        Returns
+        -------
+        int
+            Serial number of the TM
+        """
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self._reader.GetSN(tm)

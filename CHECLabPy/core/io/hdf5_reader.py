@@ -9,6 +9,15 @@ from packaging.version import parse
 
 class HDF5Reader:
     def __init__(self, path):
+        """
+        Reader for generic HDF5 files produced by CHECLabPy.core.io.HDF5Writer
+
+        Parameters
+        ----------
+        path : str
+            Path to the HDF5 file
+        """
+
         print("Opening HDF5 file: {}".format(path))
         if not os.path.exists(path):
             raise FileNotFoundError("File does not exist: {}".format(path))
@@ -19,13 +28,14 @@ class HDF5Reader:
 
         if parse(self.version).release[0] < parse(__version__).release[0]:
             warnings.warn(
-                "WARNING: HDF5 file created with older version of CHECLabPy"
+                "WARNING: HDF5 file created with older version of CHECLabPy",
+                UserWarning
             )
         elif parse(self.version).release[0] > parse(__version__).release[0]:
             warnings.warn(
-                "WARNING: HDF5 file created with newer version of CHECLabPy"
+                "WARNING: HDF5 file created with newer version of CHECLabPy",
+                UserWarning
             )
-        # TODO: Check warning and change other prints->Warnings?
 
     def __enter__(self):
         return self
@@ -66,10 +76,17 @@ class HDF5Reader:
                 "loading the entire DataFrame into memory"
             )
         if n_bytes > 8E9:
-            print("WARNING: DataFrame is larger than 8GB")
+            warnings.warn("WARNING: DataFrame is larger than 8GB", UserWarning)
         return self.store[key]
 
     def get_mapping(self):
+        """
+        Obtain the CHECLabPy camera pixel mapping dataframe from the file
+
+        Returns
+        -------
+        mapping : pd.DataFrame
+        """
         mapping = self.store['mapping']
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
@@ -77,6 +94,20 @@ class HDF5Reader:
         return mapping
 
     def get_metadata(self, key='data', name='metadata'):
+        """
+        Obtain metadata from the file
+
+        Parameters
+        ----------
+        key : str
+            HDFStore to which the metadata was attached to
+        name : str
+            Name of the metadata table
+
+        Returns
+        -------
+        dict
+        """
         return getattr(self.store.get_storer(key).attrs, name)
 
     def get_n_rows(self, key):
