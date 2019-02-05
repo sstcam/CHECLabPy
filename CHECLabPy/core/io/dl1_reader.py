@@ -12,10 +12,16 @@ def deprecate(msg):
 
 
 class DL1Reader(HDF5Reader):
-    """
-    Reader for the HDF5 DL1 Files
-    """
     def __init__(self, path):
+        """
+        Reader for the HDF5 DL1 Files. Contains some conveniance methods on
+        top of the HDF5Reader that are specific for DL1 files.
+
+        Parameters
+        ----------
+        path : str
+            Path to the HDF5 DL1 file.
+        """
         super().__init__(path)
         self._monitor = None
 
@@ -59,6 +65,9 @@ class DL1Reader(HDF5Reader):
 
     @property
     def tc_mapping(self):
+        """
+        Obtain the TargetCalib mapping class
+        """
         from target_calib import CameraConfiguration
         version = self.mapping.metadata.version
         camera_config = CameraConfiguration(version)
@@ -94,6 +103,19 @@ class DL1Reader(HDF5Reader):
         return self.metadata['camera_version']
 
     def get_sn(self, tm):
+        """
+        Get the SN of the TARGET module in a slot
+
+        Parameters
+        ----------
+        tm : int
+            Slot number for the TARGET module
+
+        Returns
+        -------
+        int
+            Serial number of the TM
+        """
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self.get_metadata('data', 'sn')["TM{:02d}".format(tm)]
@@ -259,7 +281,7 @@ class DeprecatedMonitorReader:
                               "set force=True to proceed with loading the "
                               "entire DataFrame into memory")
         if self.n_bytes > 8E9:
-            print("WARNING: DataFrame is larger than 8GB")
+            warnings.warn("WARNING: DataFrame is larger than 8GB", UserWarning)
         return self.store[key]
 
     def load_entire_table_camera(self, force=False):

@@ -5,6 +5,16 @@ import pandas as pd
 
 class SimtelReader:
     def __init__(self, path, max_events=None):
+        """
+        Reads simtelarray files utilising the SimTelEventSource from ctapipe
+
+        Parameters
+        ----------
+        path : str
+            Path to the simtel file
+        max_events : int
+            Maximum number of events to read from the file
+        """
         from ctapipe.calib import HESSIOR1Calibrator
         from ctapipe.io import SimTelEventSource, EventSeeker
         self.path = path
