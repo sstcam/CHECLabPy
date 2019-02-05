@@ -1,4 +1,4 @@
-from CHECLabPy.core.base_reducer import WaveformReducer
+from CHECLabPy.core.reducer import WaveformReducer, column
 from CHECLabPy.data import get_file
 import numpy as np
 from scipy import interpolate
@@ -6,17 +6,21 @@ from scipy.optimize import nnls
 from numba import jit
 import scipy
 
+
 class NNLSPulseExtraction(WaveformReducer):
     """
-    Extractor which does not extract charge but pulses from a waveform using NNLS to
-    solve for a linear combination of pulses. Each extracted pulse has a time and a charge.
-    By summing the charge from the pulses the recorded charge is obtained.
-
+    Extractor which does not extract charge but pulses from a waveform using
+    NNLS to solve for a linear combination of pulses. Each extracted pulse
+    has a time and a charge. By summing the charge from the pulses the
+    recorded charge is obtained.
     """
 
-    def __init__(self, n_pixels, n_samples, plot=False,
-                 reference_pulse_path='',bases_bin=4,save_pulses=True, **kwargs):
-        super().__init__(n_pixels, n_samples, plot, **kwargs)
+    def __init__(self, n_pixels, n_samples, reference_pulse_path='',
+                 bases_bin=4, save_pulses=True, **kwargs):
+        super().__init__(n_pixels, n_samples, **kwargs)
+
+        self.window_size = self.kwargs.get("window_size", 20)
+        self.window_shift = self.kwargs.get("window_shift", -25)
 
         ref = self.load_reference_pulse(reference_pulse_path)
         self.pulse_template, self.norm = ref
@@ -24,7 +28,7 @@ class NNLSPulseExtraction(WaveformReducer):
         self.extracted = None
         self.time_bins=np.arange(128)*1e-9
         
-        #Setting up model matrix from pulse template
+        # Setting up model matrix from pulse template
         x = np.linspace(0,120e-9,1000)
         y = self.pulse_template(x)
         t_end = x[np.max(np.where(y>0))]
@@ -33,10 +37,19 @@ class NNLSPulseExtraction(WaveformReducer):
         self.model_matrix = np.zeros((len(self.time_bins),self.nbasis))
         for i,t in enumerate(self.basis_t):
             self.model_matrix[:,i] = self.pulse_template((self.time_bins-t))
-        #This number makes the charge scale similarly to Cross-correlation
+        # This number makes the charge scale similarly to Cross-correlation
         self.charge_scale = 7
-        #The tolerance sets a constraint on how small pulses can be extracted
+        # The tolerance sets a constraint on how small pulses can be extracted
         self.tolerance = -14.5
+
+        self.charge = None
+        self.tcharge = None
+        self.tmcharge = None
+        self.tccharge = None
+        self.norm = None
+        self.npulses = None
+        self.errata = None
+
     @staticmethod
     def load_reference_pulse(path):
         
@@ -65,7 +78,8 @@ class NNLSPulseExtraction(WaveformReducer):
     def _pulse_extraction(self, waveforms):
         px_c = list()
         for i, wf in enumerate(waveforms):
-            pcharge = nnls(self.model_matrix,wf,tolerance=self.tolerance) * self.charge_scale  
+            pcharge = (nnls(self.model_matrix, wf, tolerance=self.tolerance)
+                       * self.charge_scale)
             
             #only care about non zero pulses
             m = pcharge>0
@@ -84,13 +98,14 @@ class NNLSPulseExtraction(WaveformReducer):
     
     @jit()
     def _merge_pulses(self, charges,times,binwidth=2.e-9):
-        if(len(charges)==0):
+        if len(charges) == 0:
             return times,charges
         binned_charge =[charges[0]]
         binned_time = [times[0]]
         for i in range(1,len(times)):
             if(times[i]-binned_time[-1]<binwidth):
-                binned_time[-1] = (binned_time[-1]*binned_charge[-1]+times[i]*charges[i])/(binned_charge[-1]+charges[i])
+                binned_time[-1] = (binned_time[-1]*binned_charge[-1]+times[i]*
+                                   charges[i])/(binned_charge[-1]+charges[i])
                 binned_charge[-1] +=charges[i]
             else:
                 binned_time.append(times[i])
@@ -100,16 +115,11 @@ class NNLSPulseExtraction(WaveformReducer):
         binned_time = np.asarray(binned_time)
         return  binned_charge,binned_time
 
+    def _prepare(self, waveforms):
+        super(NNLSPulseExtraction, self)._prepare(waveforms)
 
-    def _set_t_event(self, waveforms):
         self.extracted = self._pulse_extraction(waveforms)
-        self.kwargs['t_event'] = int(np.mean(self.extracted[:,2]*1e9))
-        self.kwargs["window_size"] = 20
-        self.kwargs["window_shift"] = -25
-        super(NNLSPulseExtraction,self)._set_t_event(waveforms)
-    
-    @jit()
-    def _get_charge(self, waveforms):
+
         charge   = np.zeros(len(self.extracted))
         tcharge  = np.zeros(len(self.extracted))
         tmcharge = np.zeros(len(self.extracted))
@@ -139,25 +149,54 @@ class NNLSPulseExtraction(WaveformReducer):
         er[:] =False
         # if(len(self.errata.keys())>0):
             # er[list(self.errata.keys())] =True
-        params = dict(
-            charge   = charge,
-            tcharge  = tcharge,
-            tmcharge = tmcharge,
-            tccharge = tccharge,
-            norm     = norm,
-            npulses  = npulses,
-            errata   = er
-        )
-        return params
+
+        self.charge = charge
+        self.tcharge = tcharge
+        self.tmcharge = tmcharge
+        self.tccharge = tccharge
+        self.norm = norm
+        self.npulses = npulses
+        self.errata = er
+
+    @column
+    def charge_nnls(self):
+        return self.charge
+
+    @column
+    def nnls_tcharge(self):
+        return self.tcharge
+
+    @column
+    def nnls_tmcharge(self):
+        return self.tmcharge
+
+    @column
+    def nnls_tccharge(self):
+        return self.tccharge
+
+    @column
+    def nnls_norm(self):
+        return self.norm
+
+    @column
+    def nnls_npulses(self):
+        return self.npulses
+
+    @column
+    def nnls_errata(self):
+        return self.errata
+
 
 @jit()
 def nnls(A,b,maxit=None,tolerance=0):
     """A mockup of the Lawson/Hanson active set algorithm
    
     See:
-    A Comparison of Block Pivoting and Interior-Point Algorithms for Linear Least Squares Problems with Nonnegative Variables
+    A Comparison of Block Pivoting and Interior-Point Algorithms for Linear
+    Least Squares Problems with Nonnegative Variables
     Author(s): Luis F. Portugal, Joaquim J. Judice, Luis N. Vicente
-    Source: Mathematics of Computation, Vol. 63, No. 208 (Oct., 1994), pp. 625-643
+    Source: Mathematics of Computation, Vol. 63, No. 208 (Oct., 1994),
+    pp. 625-643
     Published by: American Mathematical Society
     Stable URL: http://www.jstor.org/stable/2153286
     """

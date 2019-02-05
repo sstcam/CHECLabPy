@@ -40,9 +40,9 @@ def test_readerr0():
 
 def test_readerr0_with_r1():
     with pytest.raises(IOError):
-        reader = ReaderR0(get_file("targetmodule_r1.tio"))
+        ReaderR0(get_file("targetmodule_r1.tio"))
 
 
 def test_readerr1_with_r0():
     with pytest.raises(IOError):
-        reader = ReaderR1(get_file("targetmodule_r0.tio"))
+        ReaderR1(get_file("targetmodule_r0.tio"))

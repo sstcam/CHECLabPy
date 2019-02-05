@@ -181,6 +181,8 @@ class DL1Writer:
 
         self.totalrows = totalrows
         self.metadata = {}
+        self.config = {}
+        self.sn = {}
         self.n_bytes = 0
         self.df_list = []
         self.df_list_n_bytes = 0
@@ -203,26 +205,6 @@ class DL1Writer:
         if self.df_list:
             df = pd.concat(self.df_list, ignore_index=True)
 
-            default_c = [
-                't_event',
-                't_pulse',
-                'amp_pulse',
-                'charge',
-                'fwhm',
-                'tr',
-                'baseline_start_mean',
-                'baseline_start_rms',
-                'baseline_end_mean',
-                'baseline_end_rms',
-                'baseline_subtracted',
-                'waveform_mean',
-                'waveform_rms',
-                'saturation_coeff'
-            ]
-            for column in default_c:
-                if column not in df:
-                    df[column] = 0.
-
             df_float = df.select_dtypes(
                 include=['float']
             ).apply(pd.to_numeric, downcast='float')
@@ -231,7 +213,6 @@ class DL1Writer:
             df['pixel'] = df['pixel'].astype(np.uint32)
             df['first_cell_id'] = df['first_cell_id'].astype(np.uint16)
             df['t_tack'] = df['t_tack'].astype(np.uint64)
-            df['t_event'] = df['t_event'].astype(np.uint16)
 
             df = df.sort_values(["iev", "pixel"])
             self.store.append('data', df, index=False, data_columns=True,
@@ -251,9 +232,18 @@ class DL1Writer:
     def add_metadata(self, **kwargs):
         self.metadata = dict(**self.metadata, **kwargs)
 
+    def add_config(self, **kwargs):
+        self.config = dict(**self.config, **kwargs)
+
+    def add_sn(self, n_modules, get_sn):
+        for tm in range(n_modules):
+            self.sn['TM{:02d}'.format(tm)] = get_sn(tm)
+
     def _save_metadata(self):
         print("Saving data metadata to HDF5 file")
         self.store.get_storer('data').attrs.metadata = self.metadata
+        self.store.get_storer('data').attrs.config = self.config
+        self.store.get_storer('data').attrs.sn = self.sn
 
     def add_mapping(self, mapping):
         self.store['mapping'] = mapping
@@ -616,6 +606,10 @@ class DL1Reader:
         return self.store.get_storer(self.key).attrs.metadata
 
     @property
+    def config(self):
+        return self.store.get_storer(self.key).attrs.config
+
+    @property
     def columns(self):
         return self.store.get_storer(self.key).attrs.non_index_axes[0][1]
 
@@ -697,7 +691,7 @@ class DL1Reader:
     def get_sn(self, tm):
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
-        return self.metadata["TM{}_SN".format(tm)]
+        return self.store.get_storer('data').attrs.sn["TM{}_SN".format(tm)]
 
     def load_entire_table(self, force=False):
         """
