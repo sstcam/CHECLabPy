@@ -47,6 +47,8 @@ before_install:
 - cd $TRAVIS_BUILD_DIR
 # ----- end of target_software
 
+- conda install -c cta-observatory ctapipe
+
 install:
 - python setup.py develop
 

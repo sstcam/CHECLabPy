@@ -7,9 +7,8 @@ from argparse import ArgumentDefaultsHelpFormatter as Formatter
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import json
 from CHECLabPy.core.io import ReaderR1, HDF5Writer
-from CHECLabPy.core.factory import WaveformReducerFactory
+from CHECLabPy.core.chain import WaveformReducerChain
 from CHECLabPy.utils.waveform import BaselineSubtractor
 
 
@@ -29,7 +28,7 @@ class DL1Writer(HDF5Writer):
 
 
 def main():
-    description = ('Reduce a *_r1.tio file into a *_dl1.hdf5 file containing '
+    description = ('Reduce a *_r1.tio file into a *_dl1.h5 file containing '
                    'various parameters extracted from the waveforms')
     parser = argparse.ArgumentParser(description=description,
                                      formatter_class=Formatter)
@@ -41,22 +40,10 @@ def main():
                              'not specified)')
     parser.add_argument('-n', '--maxevents', dest='max_events', action='store',
                         help='Number of events to process', type=int)
-    parser.add_argument('-r', '--reducer', dest='reducer', action='store',
-                        default='AverageWF',
-                        choices=WaveformReducerFactory.subclass_names,
-                        help='WaveformReducer to use')
-    parser.add_argument('-c', '--config', dest='configuration',
-                        help="""Configuration to pass to the waveform reducer
-                        (Usage: '{"window_shift":6, "window_size":6}') """)
-    parser.add_argument('-p', '--plot', dest='plot', action='store_true',
-                        help="Plot stages for waveform reducers")
+    parser.add_argument('-c', '--config', dest='config_path',
+                        help="Path to config file. If no path is given, "
+                             "then the default columns will be stored.")
     args = parser.parse_args()
-    if args.configuration:
-        config = json.loads(args.configuration)
-        config_string = args.configuration
-    else:
-        config = {}
-        config_string = ""
 
     input_paths = args.input_paths
     n_files = len(input_paths)
@@ -72,17 +59,16 @@ def main():
         pixel_array = np.arange(n_pixels)
         camera_version = reader.camera_version
         mapping = reader.mapping
-        if 'reference_pulse_path' not in config:
-            config['reference_pulse_path'] = reader.reference_pulse_path
+        reference_pulse_path = reader.reference_pulse_path
 
         kwargs = dict(
             n_pixels=n_pixels,
             n_samples=n_samples,
-            plot=args.plot,
             mapping=mapping,
-            **config
+            reference_pulse_path=reference_pulse_path,
+            config_path=args.config_path,
         )
-        reducer = WaveformReducerFactory.produce(args.reducer, **kwargs)
+        chain = WaveformReducerChain(**kwargs)
         baseline_subtractor = BaselineSubtractor(reader)
 
         input_path = reader.path
@@ -109,7 +95,7 @@ def main():
                 waveforms_bs = baseline_subtractor.subtract(waveforms)
                 bs = baseline_subtractor.baseline
 
-                params = reducer.process(waveforms_bs)
+                params = chain.process(waveforms_bs)
 
                 df = pd.DataFrame(dict(
                     iev=iev,
@@ -138,9 +124,9 @@ def main():
                 start_time=start_time,
                 end_time=t_cpu,
                 camera_version=camera_version,
-                reducer=reducer.__class__.__name__,
-                configuration=config_string,
             )
+            config = chain.config
+            config.pop('mapping', None)
 
             writer.add_mapping(mapping)
             writer.add_metadata(name='metadata', **metadata)
