@@ -1,17 +1,16 @@
-"""
-Plot camera image using just TargetCalib and python
-"""
+from CHECLabPySB.plotting.setup import Plotter
 import numpy as np
+import matplotlib as mpl
+from matplotlib.colors import LogNorm
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
-from matplotlib.colors import LogNorm
-from CHECLabPy.plotting.setup import Plotter
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
+import os
 from copy import copy
 
 
 class CameraImage(Plotter):
-    def __init__(self, xpix, ypix, size, **kwargs):
+    def __init__(self, xpix, ypix, size, cmap=None, **kwargs):
         """
         Create a camera-image plot
 
@@ -27,6 +26,12 @@ class CameraImage(Plotter):
             Arguments passed to `CHECLabPy.plottong.setup.Plotter`
         """
         super().__init__(**kwargs)
+
+        rc = {
+            "xtick.direction": 'out',
+            "ytick.direction": 'out',
+        }
+        mpl.rcParams.update(rc)
 
         self._image = None
         self._mapping = None
@@ -50,7 +55,7 @@ class CameraImage(Plotter):
             )
             patches.append(poly)
 
-        self.pixels = PatchCollection(patches, linewidth=0)
+        self.pixels = PatchCollection(patches, linewidth=0, cmap=cmap)
         self.ax.add_collection(self.pixels)
         self.pixels.set_array(np.zeros(self.n_pixels))
 
@@ -64,10 +69,6 @@ class CameraImage(Plotter):
         self.pixel_highlighting.set_facecolor('none')
         self.pixel_highlighting.set_linewidth(0)
         self.ax.add_collection(self.pixel_highlighting)
-
-    @staticmethod
-    def figsize(scale=1.5):
-        super(CameraImage, CameraImage).figsize(scale)
 
     @property
     def image(self):
@@ -85,8 +86,37 @@ class CameraImage(Plotter):
             self.pixels.autoscale()  # Updates the colorbar
         self.ax.figure.canvas.draw()
 
-    def add_colorbar(self, label=''):
-        self.colorbar = self.ax.figure.colorbar(self.pixels, label=label)
+    def save(self, output_path):
+        super().save(output_path)
+        if output_path.endswith('.pdf'):
+            try:
+                self.crop(output_path)
+            except ModuleNotFoundError:
+                pass
+
+    @staticmethod
+    def crop(path):
+        from PyPDF2 import PdfFileWriter, PdfFileReader
+        with open(path, "rb") as in_f:
+            input1 = PdfFileReader(in_f)
+            output = PdfFileWriter()
+
+            num_pages = input1.getNumPages()
+            for i in range(num_pages):
+                page = input1.getPage(i)
+                page.cropBox.lowerLeft = (100, 20)
+                page.cropBox.upperRight = (340, 220)
+                output.addPage(page)
+
+            pdf_path = os.path.splitext(path)[0] + "_cropped.pdf"
+            with open(pdf_path, "wb") as out_f:
+                output.write(out_f)
+                print("Cropped figure saved to: {}".format(pdf_path))
+
+    def add_colorbar(self, label='', **kwargs):
+        self.colorbar = self.ax.figure.colorbar(
+            self.pixels, label=label, pad=-0.2, **kwargs
+        )
 
     def set_limits_minmax(self, zmin, zmax):
         """
@@ -95,13 +125,9 @@ class CameraImage(Plotter):
         self.pixels.set_clim(zmin, zmax)
         self.autoscale = False
 
-    def set_log(self):
-        """
-        Set the color scale to be logarithmic
-        """
+    def set_z_log(self):
         self.pixels.norm = LogNorm()
         self.pixels.autoscale()
-        self.colorbar.update_bruteforce(self.pixels)
 
     def reset_limits(self):
         """
@@ -329,10 +355,6 @@ class CameraImageImshow(Plotter):
         self.mask(data)
         self.camera = self.ax.imshow(data, origin='lower')
         self.ax.axis('off')
-
-    @staticmethod
-    def figsize(scale=1.5):
-        super(CameraImageImshow, CameraImageImshow).figsize(scale)
 
     @property
     def image(self):

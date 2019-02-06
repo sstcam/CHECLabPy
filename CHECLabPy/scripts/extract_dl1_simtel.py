@@ -73,7 +73,7 @@ def main():
         input_path = reader.path
         output_path = args.output_path
         if not output_path:
-            output_path = input_path.replace('.simtel.gz', '.h5')
+            output_path = input_path.replace('.simtel.gz', '_dl1.h5')
 
         with DL1Writer(output_path) as writer:
             t_cpu = 0
