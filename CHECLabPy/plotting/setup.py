@@ -1,5 +1,4 @@
 import matplotlib as mpl
-# mpl.use('pgf')
 from matplotlib import pyplot as plt
 import os
 import numpy as np
@@ -7,7 +6,7 @@ from CHECLabPy.utils.files import create_directory
 
 
 class Plotter:
-    def __init__(self, ax=None, talk=False):
+    def __init__(self, ax=None, sidebyside=False, talk=False):
         """
         Base class for plotting classes to define common appearance
 
@@ -15,24 +14,59 @@ class Plotter:
         ----------
         ax : `matplotlib.axes.Axes`
             Optionally place the plot on a pre-existing axes
+        sidebyside : bool
+            Resize figure so that it can be placed side-by-side
         talk : bool
             Configure appearance to be appropriate for a presentation
         """
-        # sns.set_style("white")
-        # sns.set_style("ticks")
-        rc = {
-            "font.family": [u"Helvetica"],
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
+        self.sidebyside = sidebyside
+
+        rc = {  # setup matplotlib to use latex for output
+            "font.family": "Latin Modern Roman",
+            "font.serif": [],
+            "font.sans-serif": [],
+            "font.monospace": [],
+            "font.cursive": [],
             "font.size": 10,
             "axes.titlesize": 10,
             "axes.labelsize": 10,
             "legend.fontsize": 8,
-            "lines.markeredgewidth": 1
+            "axes.prop_cycle": plt.cycler(color=plt.cm.Dark2.colors),
+
+            # Set x axis
+            "xtick.labelsize": 8,
+            "xtick.direction": 'in',
+            "xtick.major.size": 3,
+            "xtick.major.width": 0.5,
+            "xtick.minor.size": 1.5,
+            "xtick.minor.width": 0.5,
+            "xtick.minor.visible": True,
+            "xtick.top": True,
+
+            # Set y axis
+            "ytick.labelsize": 8,
+            "ytick.direction": 'in',
+            "ytick.major.size": 3,
+            "ytick.major.width": 0.5,
+            "ytick.minor.size": 1.5,
+            "ytick.minor.width": 0.5,
+            "ytick.minor.visible": True,
+            "ytick.right": True,
+
+            "axes.linewidth": 0.5,
+            "grid.linewidth": 0.5,
+            "lines.linewidth": 1.,
+
+            "savefig.bbox": 'tight',
+            "savefig.pad_inches": 0.05,
+
+            "figure.figsize": self.get_figsize(),
+            "lines.markeredgewidth": 1,
         }
+
         if talk:
             talk_rc = {
-                "font.family": [u"Helvetica"],
+                "font.family": "Latin Modern Roman",
                 "xtick.labelsize": 12,
                 "ytick.labelsize": 12,
                 "font.size": 12,
@@ -42,8 +76,8 @@ class Plotter:
                 "lines.markeredgewidth": 1
             }
             rc = {**rc, **talk_rc}
+
         mpl.rcParams.update(rc)
-        # sns.set_context("talk", rc=rc)
 
         if ax:
             self.ax = ax
@@ -52,8 +86,8 @@ class Plotter:
             self.fig, self.ax = self.create_figure()
 
     @staticmethod
-    def figsize(scale=0.9):
-        fig_width_pt = 469.755  # Get this from LaTeX using \the\textwidth
+    def golden_figsize(scale=0.9):
+        fig_width_pt = 421.10046  # Get this from LaTeX using \the\textwidth
         inches_per_pt = 1.0 / 72.27  # Convert pt to inch
         golden_mean = (np.sqrt(5.0) - 1.0) / 2.0  # Aesthetic ratio
         fig_width = fig_width_pt * inches_per_pt * scale  # width in inches
@@ -61,13 +95,15 @@ class Plotter:
         fig_size = [fig_width, fig_height]
         return fig_size
 
-    def create_figure(self):
-        fig = plt.figure(figsize=self.figsize())
-        ax = fig.add_subplot(1, 1, 1)
+    def get_figsize(self):
+        if self.sidebyside:
+            return self.golden_figsize(0.6)
+        else:
+            return self.golden_figsize(0.9)
 
-        # fmt = mpl.ticker.StrMethodFormatter("{x}")
-        # ax.xaxis.set_major_formatter(fmt)
-        # ax.yaxis.set_major_formatter(fmt)
+    def create_figure(self):
+        fig = plt.figure(figsize=self.get_figsize())
+        ax = fig.add_subplot(1, 1, 1)
         return fig, ax
 
     def add_legend(self, loc="upper right", **kwargs):
@@ -84,6 +120,6 @@ class Plotter:
         self.finish()
         output_dir = os.path.dirname(output_path)
         self.create_directory(output_dir)
-        # self.fig.tight_layout()
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))
+        plt.close(self.fig)
