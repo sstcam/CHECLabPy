@@ -172,6 +172,8 @@ class HDF5Writer:
     def _save_metadata(self):
         print("Saving metadata to HDF5 file")
         for key, submeta in self.metadata.items():
+            if key not in self.store:
+                self.store[key] = pd.DataFrame()
             attrs = self.store.get_storer(key).attrs
             for name, d in submeta.items():
                 setattr(attrs, name, d)
@@ -183,10 +185,10 @@ class HDF5Writer:
         is used in a context manager (i.e. `with HDF5Writer(path) as writer:`)
         """
         total_bytes = 0
-        for key in self.df_list.keys():
+        for key, n_bytes in self.n_bytes.items():
             self._append_to_store(key)
-            self.add_metadata(key=key, n_bytes=self.n_bytes[key])
-            total_bytes += self.n_bytes[key]
+            self.add_metadata(key=key, n_bytes=n_bytes)
+            total_bytes += n_bytes
         self.add_metadata(
             total_bytes=total_bytes,
             version=__version__,
