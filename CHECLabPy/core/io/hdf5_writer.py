@@ -19,6 +19,7 @@ class HDF5Writer:
         create_directory(os.path.dirname(path))
         print("Creating HDF5 file: {}".format(path))
 
+        self.keys = set()
         self.metadata = defaultdict(lambda: defaultdict(dict))
         self.df_list = defaultdict(list)
         self.df_list_n_bytes = defaultdict(int)
@@ -96,6 +97,7 @@ class HDF5Writer:
             Total number of rows that are expected for the table in the end.
             Not required, but can speed up the file filling/generation
         """
+        self.keys.add(key)
         self.df_list[key].append(df)
         memory_usage = df.memory_usage(index=True, deep=True).sum()
         self.df_list_n_bytes[key] += memory_usage
@@ -122,6 +124,7 @@ class HDF5Writer:
             HDFStore/table, and value corresponds to the dataframe
         """
         for key, value in kwargs.items():
+            self.keys.add(key)
             self.store[key] = value
             self.n_bytes[key] = value.memory_usage(index=True, deep=True).sum()
 
@@ -185,10 +188,10 @@ class HDF5Writer:
         is used in a context manager (i.e. `with HDF5Writer(path) as writer:`)
         """
         total_bytes = 0
-        for key, n_bytes in self.n_bytes.items():
+        for key in self.keys:
             self._append_to_store(key)
-            self.add_metadata(key=key, n_bytes=n_bytes)
-            total_bytes += n_bytes
+            self.add_metadata(key=key, n_bytes=self.n_bytes[key])
+            total_bytes += self.n_bytes[key]
         self.add_metadata(
             total_bytes=total_bytes,
             version=__version__,
