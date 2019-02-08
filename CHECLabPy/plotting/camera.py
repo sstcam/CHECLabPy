@@ -113,9 +113,9 @@ class CameraImage(Plotter):
                 output.write(out_f)
                 print("Cropped figure saved to: {}".format(pdf_path))
 
-    def add_colorbar(self, label='', **kwargs):
+    def add_colorbar(self, label='', pad=-0.2, **kwargs):
         self.colorbar = self.ax.figure.colorbar(
-            self.pixels, label=label, pad=-0.2, **kwargs
+            self.pixels, label=label, pad=pad, **kwargs
         )
 
     def set_limits_minmax(self, zmin, zmax):
