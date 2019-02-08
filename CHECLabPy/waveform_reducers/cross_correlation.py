@@ -19,6 +19,14 @@ class CrossCorrelation(WaveformReducer):
     def __init__(self, n_pixels, n_samples, reference_pulse_path='', **kwargs):
         super().__init__(n_pixels, n_samples, **kwargs)
 
+        if not reference_pulse_path:
+            raise ValueError(
+                "Missing argument to WaveformReducer/WaveformReducerChain, "
+                "please specify reference_pulse_path. "
+                "This can be obtained from TIOReader.reference_pulse_path or "
+                "SimtelReader.reference_pulse_path."
+            )
+
         ref = self._load_reference_pulse(reference_pulse_path)
         self.reference_pulse, self.y_1pe = ref
         self.cc = None
