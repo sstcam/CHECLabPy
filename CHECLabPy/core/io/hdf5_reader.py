@@ -58,6 +58,7 @@ class HDF5Reader:
                     continue
                 if isinstance(getattr(attrs, subattr), dict):
                     self.metadata_keys[key].append(subattr)
+        self.metadata_keys = dict(self.metadata_keys)
 
     def __enter__(self):
         return self
