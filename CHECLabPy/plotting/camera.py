@@ -1,4 +1,4 @@
-from CHECLabPySB.plotting.setup import Plotter
+from CHECLabPy.plotting.setup import Plotter
 import numpy as np
 import matplotlib as mpl
 from matplotlib.colors import LogNorm
