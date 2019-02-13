@@ -1,12 +1,13 @@
 import numpy as np
 from astropy.io import fits
 import warnings
-import os
+from CHECLabPy.core.io.waveform import WaveformReader
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 import pandas as pd
+import gzip
 
 
-class TIOReader:
+class TIOReader(WaveformReader):
     def __init__(self, path, max_events=None):
         """
         Utilies TargetIO to read R0 and R1 tio files. Enables easy access to
@@ -35,6 +36,8 @@ class TIOReader:
         max_events : int
             Maximum number of events to read from the file
         """
+        super().__init__(path, max_events)
+
         try:
             from target_io import WaveformArrayReader
             from target_calib import CameraConfiguration
@@ -44,14 +47,10 @@ class TIOReader:
                    "wiki/Installing_CHEC_Software")
             raise ModuleNotFoundError(msg)
 
-        if not os.path.exists(path):
-            raise FileNotFoundError("File does not exist: {}".format(path))
-        self.path = path
-
         self._reader = WaveformArrayReader(self.path, 2, 1)
 
         self.is_r1 = self._reader.fR1
-        self.n_events = self._reader.fNEvents
+        self._n_events = self._reader.fNEvents
         self.run_id = self._reader.fRunID
         self.n_pixels = self._reader.fNPixels
         self.n_modules = self._reader.fNModules
@@ -81,8 +80,8 @@ class TIOReader:
                                     dtype=np.uint16)
             self.get_tio_event = self._reader.GetR0Event
 
-        if max_events and max_events < self.n_events:
-            self.n_events = max_events
+        if max_events and max_events < self._n_events:
+            self._n_events = max_events
 
     def _get_event(self, iev):
         self.index = iev
@@ -101,29 +100,30 @@ class TIOReader:
         self.current_cpu_s = self._reader.fCurrentTimeSec
         return self.samples
 
-    def __iter__(self):
-        for iev in range(self.n_events):
-            yield self._get_event(iev)
+    @staticmethod
+    def is_compatible(path):
+        with open(path, 'rb') as f:
+            marker_bytes = f.read(1024)
 
-    def __getitem__(self, iev):
-        if isinstance(iev, slice):
-            ev_list = [self[ii] for ii in range(*iev.indices(self.n_events))]
-            return np.array(ev_list)
-        elif isinstance(iev, list):
-            ev_list = [self[ii] for ii in iev]
-            return np.array(ev_list)
-        elif isinstance(iev, int):
-            if iev < 0:
-                iev += self.n_events
-            if iev < 0 or iev >= len(self):
-                raise IndexError("The requested event ({}) is out of range"
-                                 .format(iev))
-            return np.copy(self._get_event(iev))
-        else:
-            raise TypeError("Invalid argument type")
+        # if file is gzip, read the first 4 bytes with gzip again
+        if marker_bytes[0] == 0x1f and marker_bytes[1] == 0x8b:
+            with gzip.open(path, 'rb') as f:
+                marker_bytes = f.read(1024)
 
-    def __len__(self):
-        return self.n_events
+        if b'FITS' not in marker_bytes:
+            return False
+
+        try:
+            h = fits.getheader(path, 0)
+            if 'EVENT_HEADER_VERSION' not in h:
+                return False
+        except IOError:
+            return False
+        return True
+
+    @property
+    def n_events(self):
+        return self._n_events
 
     @property
     def t_cpu(self):
@@ -154,16 +154,6 @@ class TIOReader:
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self._reader.GetSN(tm)
 
-    @staticmethod
-    def is_compatible(filepath):
-        try:
-            h = fits.getheader(filepath, 0)
-            if 'EVENT_HEADER_VERSION' not in h:
-                return False
-        except IOError:
-            return False
-        return True
-
 
 class ReaderR1(TIOReader):
     """
@@ -174,6 +164,10 @@ class ReaderR1(TIOReader):
         if not self.is_r1:
             raise IOError("This script is only setup to read *_r1.tio files!")
 
+    @staticmethod
+    def is_compatible(path):
+        return False
+
 
 class ReaderR0(TIOReader):
     """
@@ -183,3 +177,7 @@ class ReaderR0(TIOReader):
         super().__init__(path, max_events)
         if self.is_r1:
             raise IOError("This script is only setup to read *_r0.tio files!")
+
+    @staticmethod
+    def is_compatible(path):
+        return False
