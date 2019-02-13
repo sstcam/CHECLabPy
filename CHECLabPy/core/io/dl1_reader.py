@@ -52,6 +52,10 @@ class DL1Reader(HDF5Reader):
         return self.get_n_bytes('data')
 
     @property
+    def is_mc(self):
+        return self.metadata['is_mc']
+
+    @property
     def n_events(self):
         return self.metadata['n_events']
 
