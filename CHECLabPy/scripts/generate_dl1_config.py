@@ -10,6 +10,7 @@ from CHECLabPy.core import child_subclasses
 from CHECLabPy.data import get_file
 import re
 import argparse
+import os
 from argparse import ArgumentDefaultsHelpFormatter as Formatter
 
 
@@ -18,18 +19,19 @@ def main():
                    'to configure the WaveformReducers')
     parser = argparse.ArgumentParser(description=description,
                                      formatter_class=Formatter)
+    parser.add_argument('-o', '--output', dest='output_path', action='store',
+                        help='path to store the output HDF5 dl1 file')
     parser.add_argument('--bare', dest='bare', action='store_true',
                         help='create the file without docstrings')
     args = parser.parse_args()
 
+    output_path = args.output_path or get_file("extractor_config.yml")
     bare = args.bare
 
     all_reducers = child_subclasses(WaveformReducer)
     default = WaveformReducerChain.default_columns
 
-    path = get_file("extractor_config.yml")
-
-    with open(path, 'w') as f:
+    with open(output_path, 'w') as f:
         for r in all_reducers:
             f.writelines("# {}\n".format(r.__name__))
             doc = r.__doc__
@@ -44,7 +46,7 @@ def main():
                     f.writelines(doc)
             f.writelines("\n")
 
-    print("Config file created: {}".format(path))
+    print("Config file created: {}".format(output_path))
 
 
 if __name__ == '__main__':
