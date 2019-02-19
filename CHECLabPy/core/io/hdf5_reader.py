@@ -50,11 +50,15 @@ class HDF5Reader:
                 n_bytes = self.store.get_storer(key).attrs.metadata['n_bytes']
             except KeyError:
                 n_bytes = 0
+            if key in ['mapping']:
+                continue
             if not n_bytes == 0:
                 self.dataframe_keys.append(key)
             attrs = self.store.get_storer(key).attrs
             for subattr in dir(attrs):
                 if subattr.startswith("_"):
+                    continue
+                if subattr in ['info']:
                     continue
                 if isinstance(getattr(attrs, subattr), dict):
                     self.metadata_keys[key].append(subattr)
@@ -181,9 +185,9 @@ class HDF5Reader:
         """
         return self.get_metadata(key)["n_bytes"]
 
-    def get_columns(self, key):
+    def get_column_names(self, key):
         """
-        Get columns in the DataFrame
+        Get names of columns in the DataFrame
 
         Parameters
         ----------

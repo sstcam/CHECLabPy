@@ -75,6 +75,7 @@ class HDF5Writer:
             self.n_bytes[key] += df.memory_usage(index=True, deep=True).sum()
             self.df_list[key] = []
             self.df_list_n_bytes[key] = 0
+            print(key, df.memory_usage(index=True, deep=True).sum(), self.store[key].memory_usage(index=True, deep=True).sum())
 
     def append(self, df, key='data', expectedrows=None):
         """
@@ -170,6 +171,11 @@ class HDF5Writer:
         -------
 
         """
+        if name in ['info', 'mapping']:
+            raise ValueError(
+                "The name '{}' is reserved, "
+                "please choose a different name".format(name)
+            )
         self.metadata[key][name].update(kwargs)
 
     def _save_metadata(self):
