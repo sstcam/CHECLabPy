@@ -41,7 +41,7 @@ class DL1Reader(HDF5Reader):
 
     @property
     def columns(self):
-        return self.get_columns('data')
+        return self.get_column_names('data')
 
     @property
     def n_rows(self):
