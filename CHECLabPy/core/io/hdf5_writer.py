@@ -75,7 +75,6 @@ class HDF5Writer:
             self.n_bytes[key] += df.memory_usage(index=True, deep=True).sum()
             self.df_list[key] = []
             self.df_list_n_bytes[key] = 0
-            print(key, df.memory_usage(index=True, deep=True).sum(), self.store[key].memory_usage(index=True, deep=True).sum())
 
     def append(self, df, key='data', expectedrows=None):
         """
