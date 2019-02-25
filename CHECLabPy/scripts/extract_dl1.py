@@ -150,7 +150,9 @@ def main():
             writer.add_metadata(name='config', **config)
             writer.add_metadata(name='sn', **sn_dict)
             if is_mc:
-                writer.add_metadata(name='mcheader', **reader.mcheader)
+                writer.add_metadata(
+                    key='mc', name='mcheader', **reader.mcheader
+                )
 
 
 if __name__ == '__main__':
