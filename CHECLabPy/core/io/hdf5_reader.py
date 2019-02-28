@@ -21,7 +21,7 @@ class HDF5Reader:
         if not os.path.exists(path):
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
-        self.store = self.store = pd.HDFStore(
+        self.store = pd.HDFStore(
             path, mode='r', complevel=9, complib='blosc:blosclz'
         )
 
