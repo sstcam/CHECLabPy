@@ -37,5 +37,6 @@ setup(
     entry_points={'console_scripts': [
         'extract_dl1 = CHECLabPy.scripts.extract_dl1:main',
         'generate_dl1_config = CHECLabPy.scripts.generate_dl1_config:main',
+        'extract_spe = CHECLabPy.scripts.extract_spe:main',
     ]}
 )
