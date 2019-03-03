@@ -43,10 +43,10 @@ class SpectrumFitPlotter(Plotter):
         hist, edges, between = fitter.get_histogram_summed(
             charges, fitter.nbins, fitter.range
         )
-        coeff = fitter.coeff.copy()
-        errors = fitter.errors.copy()
-        coeffl = fitter.coeff_names.copy()
-        coeff_initial = fitter.p0.copy()
+        coeff = dict(fitter.coeff)
+        errors = dict(fitter.errors)
+        coeffl = list(fitter.coeff_names)
+        coeff_initial = dict(fitter.p0)
         fit = fitter.get_fit_summed(x, **coeff)
         initial = fitter.get_fit_summed(x, **coeff_initial)
 

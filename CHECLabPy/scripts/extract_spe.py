@@ -84,18 +84,18 @@ class SpectrumFitProcessor:
             initial=initial
         )
 
-        coeff = self.fitter.coeff.copy()
+        coeff = dict(self.fitter.coeff)
         coeff['pixel'] = pixel
         coeff['chi2'] = self.fitter.chi2
         coeff['rchi2'] = self.fitter.reduced_chi2
         coeff['p_value'] = self.fitter.p_value
         self.coeff[pixel] = coeff
 
-        errors = self.fitter.errors.copy()
+        errors = dict(self.fitter.errors)
         errors['pixel'] = pixel
         self.errors[pixel] = errors
 
-        initial = self.fitter.p0.copy()
+        initial = dict(self.fitter.p0)
         self.fitter.coeff = initial
         initial['pixel'] = pixel
         initial['chi2'] = self.fitter.chi2
@@ -203,14 +203,14 @@ class SpectrumFitProcessor:
             initial=initial
         )
 
-        coeff = self.fitter.coeff.copy()
+        coeff = dict(self.fitter.coeff)
         coeff['chi2'] = self.fitter.chi2
         coeff['rchi2'] = self.fitter.reduced_chi2
         coeff['p_value'] = self.fitter.p_value
 
-        errors = self.fitter.errors.copy()
+        errors = dict(self.fitter.errors)
 
-        initial = self.fitter.p0.copy()
+        initial = dict(self.fitter.p0)
         self.fitter.coeff = initial
         initial['chi2'] = self.fitter.chi2
         initial['rchi2'] = self.fitter.reduced_chi2
