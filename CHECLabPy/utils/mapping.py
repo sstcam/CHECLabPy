@@ -41,9 +41,11 @@ def get_clp_mapping_from_tc_mapping(tc_mapping):
     return df
 
 
-def get_clp_mapping_from_version(version):
+def get_clp_mapping_from_version(version, single_module=False):
     from target_calib import CameraConfiguration
-    tc_mapping = CameraConfiguration(version).GetMapping()
+    tc_mapping = CameraConfiguration(version).GetMapping(
+        singleModule=single_module
+    )
     return get_clp_mapping_from_tc_mapping(tc_mapping)
 
 
@@ -124,14 +126,40 @@ def get_tm_mapping(mapping):
     return df
 
 
-def get_ctapipe_camera_geometry(mapping):
+def get_ctapipe_camera_geometry(mapping, foclen=2.283, plate_scale=None):
+    """
+    Obtain a ctapipe CameraGeometry object from the CHECLabPy Mapping object.
+
+    Pixel coordinates are converted into degrees using the plate scale.
+
+    Parameters
+    ----------
+    mapping : `pandas.DataFrame`
+        The mapping for the pixels stored in a pandas DataFrame. Can be
+        obtained from either of these options:
+
+        CHECLabPy.io.TIOReader.mapping
+        CHECLabPy.io.ReaderR0.mapping
+        CHECLabPy.io.ReaderR1.mapping
+        CHECLabPy.io.DL1Reader.mapping
+        CHECLabPy.utils.mapping.get_clp_mapping_from_tc_mapping
+
+    Returns
+    -------
+    geom : `ctapipe.instrument.camera.CameraGeometry`
+    """
     from ctapipe.instrument import TelescopeDescription
     from astropy import units as u
 
-    foclen = 2.283 * u.m
+    if plate_scale:
+        mapping['xpix'] /= plate_scale
+        mapping['ypix'] /= plate_scale
+        mapping.metadata['size'] /= plate_scale
+
+    foclen = foclen * u.m
     pix_pos = np.vstack([
-        mapping['xpix'].values * 1E2,
-        mapping['ypix'].values * 1E2
+        mapping['xpix'].values,
+        mapping['ypix'].values,
     ]) * u.m
     camera = TelescopeDescription.guess(*pix_pos, foclen).camera
     return camera
