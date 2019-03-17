@@ -1,6 +1,6 @@
 import numpy as np
-from numba import jit, prange
-from math import lgamma, exp, pow, sqrt, log
+from numba import njit, prange, vectorize, int64, float64
+from math import lgamma, exp, pow, sqrt, log, pi
 from CHECLabPy.core.spectrum_fitter import SpectrumFitter
 
 
@@ -25,7 +25,7 @@ class GentileFitter(SpectrumFitter):
         self.add_parameter("eped_sigma", 9, 2, 20)
         self.add_parameter("spe", 25, 15, 40)
         self.add_parameter("spe_sigma", 2, 1, 20)
-        self.add_parameter("lambda_", 0.7, 0.001, 6, multi=True)
+        self.add_parameter("lambda_", 0.7, 0.001, 3, multi=True)
         self.add_parameter("opct", 0.4, 0.01, 0.8)
         self.add_parameter("pap", 0.09, 0.01, 0.8)
         self.add_parameter("dap", 0.5, 0, 0.8)
@@ -41,10 +41,10 @@ class GentileFitter(SpectrumFitter):
         return sipm_spe_fit(x, **kwargs)
 
 
-SQRT2PI = np.sqrt(2.0 * np.pi)
+SQRT2PI = sqrt(2.0 * pi)
 
 
-@jit(nopython=True, fastmath=True, parallel=True)
+@vectorize([float64(int64, int64)], fastmath=True)
 def binom(n, k):
     """
     Obtain the binomial coefficient, using a definition that is mathematically
@@ -58,7 +58,7 @@ def binom(n, k):
     return exp(lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1))
 
 
-@jit(nopython=True, fastmath=True, parallel=True)
+@vectorize([float64(int64, float64)], fastmath=True)
 def poisson(k, mu):
     """
     Obtain the poisson PMF, using a definition that is mathematically
@@ -72,7 +72,7 @@ def poisson(k, mu):
     return exp(k * log(mu) - mu - lgamma(k + 1))
 
 
-@jit(nopython=True, fastmath=True, parallel=True)
+@vectorize([float64(float64, float64, float64)], fastmath=True)
 def normal_pdf(x, mean=0, std_deviation=1):
     """
     Obtain the normal PDF.
@@ -83,10 +83,10 @@ def normal_pdf(x, mean=0, std_deviation=1):
     Source: https://stackoverflow.com/questions/10847007/using-the-gaussian-probability-density-function-in-c
     """
     u = (x - mean) / std_deviation
-    return np.exp(-0.5 * u ** 2) / (SQRT2PI * std_deviation)
+    return exp(-0.5 * u ** 2) / (SQRT2PI * std_deviation)
 
 
-@jit(fastmath=True, parallel=True)
+@njit(fastmath=True, parallel=True)
 def sipm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct, pap, dap):
     sap = spe_sigma  # Assume the sigma of afterpulses is the same
 
@@ -104,7 +104,7 @@ def sipm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct, pap, dap):
             pj = poisson(j, lambda_)  # Probability for j initial fired cells
 
             # Skip insignificant probabilities
-            if pj < 1e-5:
+            if pj < 1e-4:
                 continue
 
             # Sum the probability from the possible combinations which result
@@ -113,9 +113,9 @@ def sipm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, opct, pap, dap):
             pk += pj * pow(1-opct, j) * pow(opct, k-j) * binom(k-1, j-1)
 
         # Skip insignificant probabilities
-        if (not found) & (pk < 1e-5):
+        if (not found) & (pk < 1e-4):
             continue
-        if found & (pk < 1e-5):
+        if found & (pk < 1e-4):
             break
         found = True
 

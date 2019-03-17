@@ -1,6 +1,6 @@
 import numpy as np
-from numba import jit, prange
-from math import lgamma, exp, sqrt, log
+from numba import njit, prange, vectorize, int64, float64
+from math import lgamma, exp, sqrt, log, pi
 from CHECLabPy.core.spectrum_fitter import SpectrumFitter
 
 
@@ -37,27 +37,44 @@ class MAPMFitter(SpectrumFitter):
         return mapm_spe_fit(x, **kwargs)
 
 
-SQRT2PI = np.sqrt(2.0 * np.pi)
+SQRT2PI = sqrt(2.0 * pi)
 
 
-@jit(nopython=True, fastmath=True, parallel=True)
+@vectorize([float64(int64, float64)], fastmath=True)
 def poisson(k, mu):
+    """
+    Obtain the poisson PMF, using a definition that is mathematically
+    equivalent but numerically stable to avoid arithmetic overflow.
+
+    The result is the probability of observing k events for an average number
+    of events per interval, lambda_.
+
+    Source: https://en.wikipedia.org/wiki/Poisson_distribution
+    """
     return exp(k * log(mu) - mu - lgamma(k + 1))
 
 
-@jit(nopython=True, fastmath=True, parallel=True)
+@vectorize([float64(float64, float64, float64)], fastmath=True)
 def normal_pdf(x, mean=0, std_deviation=1):
+    """
+    Obtain the normal PDF.
+
+    The result is the probability of obseving a value at a position x, for a
+    normal distribution described by a mean m and a standard deviation s.
+
+    Source: https://stackoverflow.com/questions/10847007/using-the-gaussian-probability-density-function-in-c
+    """
     u = (x - mean) / std_deviation
-    return np.exp(-0.5 * u ** 2) / (SQRT2PI * std_deviation)
+    return exp(-0.5 * u ** 2) / (SQRT2PI * std_deviation)
 
 
-@jit(fastmath=True, parallel=True)
+@njit(fastmath=True, parallel=True)
 def mapm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_):
     # Obtain pedestal peak
     p_ped = exp(-lambda_)
     ped_signal = norm * p_ped * normal_pdf(x, eped, eped_sigma)
 
-    pe_signal = 0
+    pe_signal = np.zeros(x.size)
     found = False
 
     # Loop over the possible total number of cells fired
@@ -65,9 +82,9 @@ def mapm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_):
         p = poisson(k, lambda_)  # Probability to get k avalanches
 
         # Skip insignificant probabilities
-        if (not found) & (p < 1e-5):
+        if (not found) & (p < 1e-4):
             continue
-        if found & (p < 1e-5):
+        if found & (p < 1e-4):
             break
         found = True
 
