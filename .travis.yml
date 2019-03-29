@@ -29,7 +29,7 @@ before_install:
   - conda info -a # Useful for debugging any issues with conda
 
   - conda create --name cta-dev python=$PYTHON_VERSION pip numpy packaging
-  - source activate cta-dev
+  - conda activate cta-dev
   - pip install pytest
 
   # ----- target_software
@@ -38,7 +38,7 @@ before_install:
   - mkdir -p $HOME/Software
   - cd $HOME/Software
   - git clone https://github.com/watsonjj/target_software.git
-  - cd $TARGET_SOFTWARE
+  - cd target_software
   - ./install.sh
   - cd $TRAVIS_BUILD_DIR
   # ----- end of target_software
@@ -46,8 +46,8 @@ before_install:
   - conda install -c cta-observatory ctapipe
 
 install:
-- python setup.py develop
+  - python setup.py develop
 
 script:
-- cd $TRAVIS_BUILD_DIR
-- pytest -vvs
+  - cd $TRAVIS_BUILD_DIR
+  - pytest -vvs
