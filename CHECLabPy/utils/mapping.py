@@ -158,7 +158,7 @@ def get_ctapipe_camera_geometry(mapping, plate_scale=None):
 
     camera = CameraGeometry(
         "CHEC",
-        pix_id=np.arange(mapping.metadata.n_pixels),
+        pix_id=np.arange(mapping.metadata['n_pixels']),
         pix_x=mapping['xpix'].values * u.m,
         pix_y=mapping['ypix'].values * u.m,
         pix_area=None,
