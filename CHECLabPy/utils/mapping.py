@@ -126,7 +126,7 @@ def get_tm_mapping(mapping):
     return df
 
 
-def get_ctapipe_camera_geometry(mapping, foclen=2.283, plate_scale=None):
+def get_ctapipe_camera_geometry(mapping, plate_scale=None):
     """
     Obtain a ctapipe CameraGeometry object from the CHECLabPy Mapping object.
 
@@ -148,7 +148,7 @@ def get_ctapipe_camera_geometry(mapping, foclen=2.283, plate_scale=None):
     -------
     geom : `ctapipe.instrument.camera.CameraGeometry`
     """
-    from ctapipe.instrument import TelescopeDescription
+    from ctapipe.instrument import CameraGeometry
     from astropy import units as u
 
     if plate_scale:
@@ -156,10 +156,12 @@ def get_ctapipe_camera_geometry(mapping, foclen=2.283, plate_scale=None):
         mapping['ypix'] /= plate_scale
         mapping.metadata['size'] /= plate_scale
 
-    foclen = foclen * u.m
-    pix_pos = np.vstack([
-        mapping['xpix'].values,
-        mapping['ypix'].values,
-    ]) * u.m
-    camera = TelescopeDescription.guess(*pix_pos, foclen).camera
+    camera = CameraGeometry(
+        "CHEC",
+        pix_id=np.arange(mapping.metadata['n_pixels']),
+        pix_x=mapping['xpix'].values * u.m,
+        pix_y=mapping['ypix'].values * u.m,
+        pix_area=None,
+        pix_type='rectangular',
+    )
     return camera
