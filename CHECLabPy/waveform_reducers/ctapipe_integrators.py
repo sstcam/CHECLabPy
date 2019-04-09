@@ -11,7 +11,7 @@ class CtapipeLocalPeakIntegrator(WaveformReducer):
         super().__init__(n_pixels, n_samples, **kwargs)
 
         try:
-            from ctapipe.image.charge_extractors import LocalPeakIntegrator
+            from ctapipe.image.extractor import LocalPeakWindowSum
         except ImportError:
             msg = ("ctapipe not found. Please either install ctapipe or "
                    "disable the columns from WaveformReducer {} ({})"
@@ -20,17 +20,16 @@ class CtapipeLocalPeakIntegrator(WaveformReducer):
 
         self.window_size = self.kwargs.get("window_size", 8)
         self.window_shift = self.kwargs.get("window_shift", 4)
-        self.integrator = LocalPeakIntegrator(
+        self.integrator = LocalPeakWindowSum(
             window_shift=self.window_shift,
             window_width=self.window_size
         )
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        extract = self.integrator.extract_charge
-        charge, peakpos, window = extract(waveforms[None, ...])
+        charge, pulse_time = self.integrator(waveforms[None, ...])
 
-        self.t = peakpos[0]
+        self.t = pulse_time[0]
         self.charge = charge[0]
 
     @column
@@ -63,7 +62,7 @@ class CtapipeNeighbourPeakIntegrator(WaveformReducer):
                              "to CtapipeNeighbourPeakIntegrator")
 
         try:
-            from ctapipe.image.charge_extractors import NeighbourPeakIntegrator
+            from ctapipe.image.extractor import NeighborPeakWindowSum
         except ImportError:
             msg = ("ctapipe not found. Please either install ctapipe or "
                    "disable the columns from WaveformReducer {} ({})"
@@ -74,19 +73,18 @@ class CtapipeNeighbourPeakIntegrator(WaveformReducer):
 
         self.window_size = self.kwargs.get("window_size", 8)
         self.window_shift = self.kwargs.get("window_shift", 4)
-        self.integrator = NeighbourPeakIntegrator(
+        self.integrator = NeighborPeakWindowSum(
             window_shift=self.window_shift,
             window_width=self.window_size,
             lwt=0,
         )
-        self.integrator.neighbours = camera.neighbor_matrix_where
+        self.integrator.neighbors = camera.neighbor_matrix_where
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        extract = self.integrator.extract_charge
-        charge, peakpos, window = extract(waveforms[None, ...])
+        charge, pulse_time = self.integrator(waveforms[None, ...])
 
-        self.t = peakpos[0]
+        self.t = pulse_time[0]
         self.charge = charge[0]
 
     @column
