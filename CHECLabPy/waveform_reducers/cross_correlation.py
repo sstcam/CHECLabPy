@@ -121,14 +121,14 @@ class CrossCorrelationLocal(CrossCorrelation):
         super().__init__(n_pixels, n_samples, **kwargs)
 
         try:
-            from ctapipe.image.charge_extractors import LocalPeakIntegrator
+            from ctapipe.image.extractor import LocalPeakWindowSum
         except ImportError:
             msg = ("ctapipe not found. Please either install ctapipe or "
                    "disable the columns from WaveformReducer {} ({})"
                    .format(self.__class__.__name__, self.columns))
             raise ImportError(msg)
 
-        self.integrator = LocalPeakIntegrator(
+        self.integrator = LocalPeakWindowSum(
             window_shift=0,
             window_width=1,
         )
@@ -136,10 +136,9 @@ class CrossCorrelationLocal(CrossCorrelation):
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
         self.cc = correlate1d(waveforms, self.reference_pulse)
-        extract = self.integrator.extract_charge
-        charge, peakpos, window = extract(self.cc[None, ...])
+        charge, pulse_time = self.integrator(self.cc[None, ...])
 
-        self.t = peakpos[0]
+        self.t = pulse_time[0]
         self.charge = charge[0]
 
     @column
@@ -179,7 +178,7 @@ class CrossCorrelationNeighbour(CrossCorrelation):
                              "to CrossCorrelationNeighbour")
 
         try:
-            from ctapipe.image.charge_extractors import NeighbourPeakIntegrator
+            from ctapipe.image.extractor import NeighborPeakWindowSum
         except ImportError:
             msg = ("ctapipe not found. Please either install ctapipe or "
                    "disable the columns from WaveformReducer {} ({})"
@@ -188,20 +187,19 @@ class CrossCorrelationNeighbour(CrossCorrelation):
 
         camera = get_ctapipe_camera_geometry(mapping)
 
-        self.integrator = NeighbourPeakIntegrator(
+        self.integrator = NeighborPeakWindowSum(
             window_shift=0,
             window_width=1,
             lwt=0,
         )
-        self.integrator.neighbours = camera.neighbor_matrix_where
+        self.integrator.neighbors = camera.neighbor_matrix_where
 
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
         self.cc = correlate1d(waveforms, self.reference_pulse)
-        extract = self.integrator.extract_charge
-        charge, peakpos, window = extract(self.cc[None, ...])
+        charge, pulse_time = self.integrator(self.cc[None, ...])
 
-        self.t = peakpos[0]
+        self.t = pulse_time[0]
         self.charge = charge[0]
 
     @column
