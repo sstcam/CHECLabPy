@@ -1,14 +1,21 @@
 import numpy as np
 from enum import IntEnum
-from numba import njit, prange
 from CHECLabPy.waveform_reducers.average_wf import AverageWF
 from CHECLabPy.core.io import ReaderR0
 
 
 class STAGE(IntEnum):
     STEP10 = 0
-    STEP1 = 1
-    FINISH = 2
+    STEP5 = 1
+    STEP1 = 2
+    FINISH = 3
+
+
+class GLOBAL_STAGE(IntEnum):
+    FIRST_PASS = 0
+    RESET = 1
+    SECOND_PASS = 2
+    FINISH = 3
 
 
 class AmplitudeMatcher:
@@ -26,12 +33,14 @@ class AmplitudeMatcher:
         self.dead_mask[dead_list] = True
 
         n_superpixels = n_pixels // 4
-        self.final = False
+        self.global_stage = GLOBAL_STAGE.FIRST_PASS
+        self.ready_for_final2 = False
         self.stage = np.zeros(n_superpixels, dtype=np.int16)
         self.dead_sp_mask = self.dead_mask.reshape((n_superpixels, 4)).all(1)
-        self.current_dac = starting_dacs.copy()
-        self.previous_dac = np.zeros(n_superpixels, dtype=np.int16)
+        self.current_dac = self.starting_dacs.copy()
+        self.previous_dac = self.starting_dacs.copy()
         self.previous_rmse = np.zeros(n_superpixels)
+        self.previous_direction = np.zeros(n_superpixels, dtype=np.int16)
         self.iteration = 0
 
     def _extract_amplitude(self, r0_waveforms, fci):
@@ -58,7 +67,6 @@ class AmplitudeMatcher:
         return amplitude
 
     @staticmethod
-    @njit
     def _calculate_average_and_rmse_nb(amplitude, amplitude_aim, dead):
         n_events, n_pixels = amplitude.shape
         n_superpixels = n_pixels // 4
@@ -83,15 +91,14 @@ class AmplitudeMatcher:
         )
 
     @staticmethod
-    @njit(parallel=True)
     def _get_next_dac_nb(
             dac, rmse, direction,
-            previous_dac, previous_rmse,
+            previous_dac, previous_rmse, previous_direction,
             dead_sp, stage, iteration
     ):
         next_dac = dac.copy()
         n_superpixel = next_dac.size
-        for isp in prange(n_superpixel):
+        for isp in range(n_superpixel):
             if stage[isp] == STAGE.FINISH:
                 continue
 
@@ -101,18 +108,25 @@ class AmplitudeMatcher:
                 continue
 
             if iteration == 0:
-                previous_rmse = rmse[isp]
+                previous_rmse[isp] = rmse[isp]
 
             if previous_rmse[isp] < rmse[isp]:
                 next_dac[isp] = previous_dac[isp]
+                direction[isp] = previous_direction[isp]
                 stage[isp] += 1
                 if stage[isp] == STAGE.FINISH:
                     continue
+            else:
+                previous_dac[isp] = dac[isp]
+                previous_rmse[isp] = rmse[isp]
+                previous_direction[isp] = direction[isp]
 
             if stage[isp] == STAGE.STEP10:
-                next_dac[isp] = dac[isp] + 10 * direction[isp]
+                next_dac[isp] += 10 * direction[isp]
+            elif stage[isp] == STAGE.STEP5:
+                next_dac[isp] += 5 * direction[isp]
             elif stage[isp] == STAGE.STEP1:
-                next_dac[isp] = dac[isp] + 1 * direction[isp]
+                next_dac[isp] += 1 * direction[isp]
 
             if next_dac[isp] > 255:
                 next_dac[isp] = 255
@@ -123,31 +137,36 @@ class AmplitudeMatcher:
                 stage[isp] = STAGE.FINISH
                 continue
 
+        return next_dac
+
     def _get_next_dac(self, rmse, direction):
         next_dac = self._get_next_dac_nb(
             self.current_dac, rmse, direction,
-            self.previous_dac, self.previous_rmse,
+            self.previous_dac, self.previous_rmse, self.previous_direction,
             self.dead_sp_mask, self.stage, self.iteration
         )
 
         self.iteration += 1
-        self.previous_dac = self.current_dac
-        self.previous_rmse = rmse
         self.current_dac = next_dac
 
         return next_dac
 
     def process(self, r0_path):
-        if self.final:
-            return self.current_dac, True
-
         amplitude = self._extract_amplitude_array(r0_path)
+        average_amplitude_pix = np.mean(amplitude, axis=0)
         average, direction, rmse = self._calculate_average_and_rmse(amplitude)
+
+        if self.global_stage == GLOBAL_STAGE.RESET:
+            self.iteration = 0
+            self.stage[:] = STAGE.STEP5
+            self.global_stage += 1
+
+        if self.global_stage == GLOBAL_STAGE.FINISH:
+            return self.current_dac, average_amplitude_pix, True
+
         next_dac = self._get_next_dac(rmse, direction)
-        self.final = (self.stage == STAGE.FINISH).all()
+        finished = (self.stage == STAGE.FINISH).all()
+        if finished:
+            self.global_stage += 1
 
-        print(f"Amplitude = {average[0]}, "
-              f"RMSE = {rmse[0]}, "
-              f"DAC = {next_dac[0]}")
-
-        return next_dac.reshape((32, 16)), average, False
+        return next_dac.reshape((32, 16)), average_amplitude_pix, False
