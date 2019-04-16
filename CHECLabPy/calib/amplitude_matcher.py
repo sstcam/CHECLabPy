@@ -166,4 +166,4 @@ class AmplitudeMatcher:
         self.final = (self.stage == STAGE.FINISH).all()
         self.current_dac = next_dac
 
-        return next_dac, False
+        return next_dac, amplitude.mean(0), False
