@@ -1,6 +1,5 @@
 from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
-from matplotlib import pyplot as plt
 
 
 class Timing(WaveformReducer):
@@ -194,6 +193,7 @@ class Timing(WaveformReducer):
 
     def _post(self):
         if self.plot:
+            from matplotlib import pyplot as plt
             ipulse = np.argmax(self.waveforms[:, self.t_event])
             ilow = np.argmin(self.waveforms[:, self.t_event])
 
