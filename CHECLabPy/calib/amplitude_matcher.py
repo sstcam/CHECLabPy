@@ -71,7 +71,7 @@ class AmplitudeMatcher:
         r1_waveforms = self.calibrator(r0_waveforms, fci)
         amplitude = np.max(r1_waveforms, axis=1)
         if self.illumination_profile:
-            self.illumination_profile.unfold(amplitude)
+            amplitude = self.illumination_profile.unfold(amplitude)
         return amplitude
 
     def _extract_amplitude_array(self, r0_path):
