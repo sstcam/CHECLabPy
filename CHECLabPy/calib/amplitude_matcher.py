@@ -11,7 +11,7 @@ class STAGE(IntEnum):
     FINISH = 3
 
 
-class GLOBAL_STAGE(IntEnum):
+class GLOBALSTAGE(IntEnum):
     FIRST_PASS = 0
     RESET = 1
     SECOND_PASS = 2
@@ -19,40 +19,59 @@ class GLOBAL_STAGE(IntEnum):
 
 
 class AmplitudeMatcher:
-    def __init__(self, calibrator, starting_dacs, amplitude_aim, dead_list):
+    def __init__(self, calibrator, amplitude_aim,
+                 starting_dacs=None, bad_hv=None, illumination_profile=None):
+        """
+        Logic and waveform processessing for amplitude matching
+
+        Parameters
+        ----------
+        calibrator : CHECLabPy.calib.WaveformCalibrator
+            Class for performing the online TargetCalib waveform calibration
+        amplitude_aim : float
+            Target amplitude for matching
+        starting_dacs : ndarray
+            Starting dac value for each superpixel
+        bad_hv : ndarray
+            Bad HV superpixel mask, of shape (n_superpixels)
+        illumination_profile : CHECLabPy.calib.IlluminationProfile
+            Class for handling the illumination profile
+        """
         self.calibrator = calibrator
         n_pixels = calibrator.n_pixels
         n_samples = calibrator.n_samples
+        n_superpixels = n_pixels // 4
 
+        self.amplitude_aim = amplitude_aim
+
+        if starting_dacs is None:
+            starting_dacs = np.full(n_superpixels, 100)
         self.starting_dacs = starting_dacs.ravel()
+
+        if bad_hv is None:
+            self.sp_mask = np.zeros(n_superpixels, dtype=np.bool)
+        else:
+            if bad_hv.size == n_pixels:
+                bad_hv.reshape((n_superpixels, 4)).all(1)
+            self.sp_mask = bad_hv.ravel()
+
+        self.illumination_profile = illumination_profile
 
         self.waveform_reducer = AverageWF(n_pixels, n_samples)
 
-        self.amplitude_aim = amplitude_aim
-        self.dead_mask = np.zeros(n_pixels, dtype=np.bool)
-        self.dead_mask[dead_list] = True
-
-        n_superpixels = n_pixels // 4
-        self.global_stage = GLOBAL_STAGE.FIRST_PASS
+        self.global_stage = GLOBALSTAGE.FIRST_PASS
         self.ready_for_final2 = False
         self.stage = np.zeros(n_superpixels, dtype=np.int16)
-        self.dead_sp_mask = self.dead_mask.reshape((n_superpixels, 4)).all(1)
         self.current_dac = self.starting_dacs.copy()
         self.previous_dac = self.starting_dacs.copy()
-        self.previous_rmse = np.zeros(n_superpixels)
-        self.previous_direction = np.zeros(n_superpixels, dtype=np.int16)
+        self.previous_distance = np.zeros(n_superpixels)
         self.iteration = 0
 
     def _extract_amplitude(self, r0_waveforms, fci):
         r1_waveforms = self.calibrator(r0_waveforms, fci)
-
         amplitude = np.max(r1_waveforms, axis=1)
-        # TODO switch to integration - but need conversion to mV
-        # self.waveform_reducer._prepare(r1_waveforms)
-        # amplitude = self.waveform_reducer.amplitude_averagewf
-
-        # TODO Apply illumination profile correction
-
+        if self.illumination_profile:
+            self.illumination_profile.unfold(amplitude)
         return amplitude
 
     def _extract_amplitude_array(self, r0_path):
@@ -66,35 +85,20 @@ class AmplitudeMatcher:
             amplitude[iev] = self._extract_amplitude(wfs, fci)
         return amplitude
 
-    @staticmethod
-    def _calculate_average_and_rmse_nb(amplitude, amplitude_aim, dead):
+    def _calculate_average(self, amplitude):
+        aim = self.amplitude_aim
         n_events, n_pixels = amplitude.shape
         n_superpixels = n_pixels // 4
-        sum_average = np.zeros(n_superpixels)
-        sum_rmse = np.zeros(n_superpixels)
-        n = np.zeros(n_superpixels)
-        for iev in range(n_events):
-            for ipix in range(n_pixels):
-                amp = amplitude[iev, ipix]
-                if not dead[ipix]:
-                    sum_average[ipix // 4] += amp
-                    sum_rmse[ipix // 4] += (amp - amplitude_aim) ** 2
-                    n[ipix // 4] += 1
-        average = sum_average / n
-        direction = np.sign(average - amplitude_aim)
-        rmse = np.sqrt(sum_rmse / n)
-        return average, direction, rmse
-
-    def _calculate_average_and_rmse(self, amplitude):
-        return self._calculate_average_and_rmse_nb(
-            amplitude, self.amplitude_aim, self.dead_mask
-        )
+        average = amplitude.reshape((n_events, n_superpixels, 4)).mean((0, 2))
+        direction = np.sign(average - aim)
+        distance = ((average - aim) / aim) ** 2
+        return average, direction, distance
 
     @staticmethod
     def _get_next_dac_nb(
-            dac, rmse, direction,
-            previous_dac, previous_rmse, previous_direction,
-            dead_sp, stage, iteration
+            dac, distance, direction,
+            previous_dac, previous_distance,
+            sp_mask, stage, iteration
     ):
         next_dac = dac.copy()
         n_superpixel = next_dac.size
@@ -102,24 +106,18 @@ class AmplitudeMatcher:
             if stage[isp] == STAGE.FINISH:
                 continue
 
-            if dead_sp[isp]:
+            if sp_mask[isp]:
                 next_dac[isp] = 255
                 stage[isp] = STAGE.FINISH
                 continue
 
             if iteration == 0:
-                previous_rmse[isp] = rmse[isp]
+                previous_distance[isp] = distance[isp]
 
-            if previous_rmse[isp] < rmse[isp]:
+            if previous_distance[isp] < distance[isp]:
                 next_dac[isp] = previous_dac[isp]
-                direction[isp] = previous_direction[isp]
                 stage[isp] += 1
-                if stage[isp] == STAGE.FINISH:
-                    continue
-            else:
-                previous_dac[isp] = dac[isp]
-                previous_rmse[isp] = rmse[isp]
-                previous_direction[isp] = direction[isp]
+                continue
 
             if stage[isp] == STAGE.STEP10:
                 next_dac[isp] += 10 * direction[isp]
@@ -139,32 +137,47 @@ class AmplitudeMatcher:
 
         return next_dac
 
-    def _get_next_dac(self, rmse, direction):
+    def _get_next_dac(self, distance, direction):
         next_dac = self._get_next_dac_nb(
-            self.current_dac, rmse, direction,
-            self.previous_dac, self.previous_rmse, self.previous_direction,
-            self.dead_sp_mask, self.stage, self.iteration
+            self.current_dac, distance, direction,
+            self.previous_dac, self.previous_distance,
+            self.sp_mask, self.stage, self.iteration
         )
 
+        self.previous_dac = self.current_dac
+        self.previous_distance = distance
         self.iteration += 1
         self.current_dac = next_dac
 
         return next_dac
 
     def process(self, r0_path):
+        """
+        Process the R0 file, and obtain the next DAC values
+
+        Parameters
+        ----------
+        r0_path : str
+            Path to the R0 file
+
+        Returns
+        -------
+        next_dac : ndarray
+            The next DAC values to set, in shape (32, 16)
+        """
         amplitude = self._extract_amplitude_array(r0_path)
         average_amplitude_pix = np.mean(amplitude, axis=0)
-        average, direction, rmse = self._calculate_average_and_rmse(amplitude)
+        average, direction, distance = self._calculate_average(amplitude)
 
-        if self.global_stage == GLOBAL_STAGE.RESET:
+        if self.global_stage == GLOBALSTAGE.RESET:
             self.iteration = 0
-            self.stage[:] = STAGE.STEP5
+            self.stage[:] = STAGE.STEP1
             self.global_stage += 1
 
-        if self.global_stage == GLOBAL_STAGE.FINISH:
+        if self.global_stage == GLOBALSTAGE.FINISH:
             return self.current_dac, average_amplitude_pix, True
 
-        next_dac = self._get_next_dac(rmse, direction)
+        next_dac = self._get_next_dac(distance, direction)
         finished = (self.stage == STAGE.FINISH).all()
         if finished:
             self.global_stage += 1

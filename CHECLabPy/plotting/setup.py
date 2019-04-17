@@ -123,3 +123,6 @@ class Plotter:
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))
         plt.close(self.fig)
+
+    def show(self, *args, **kwargs):
+        plt.show(*args, **kwargs)
