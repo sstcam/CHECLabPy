@@ -1,8 +1,25 @@
 from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
 from scipy import interpolate
-from scipy.ndimage import correlate1d
 from CHECLabPy.utils.mapping import get_ctapipe_camera_geometry
+from numba import njit, prange, float64, float32
+
+
+@njit([
+    float64[:, :](float64[:, :], float64[:]),
+    float64[:, :](float32[:, :], float64[:]),
+], parallel=True, nogil=True)
+def correlate1d(waveforms, ref_pulse):
+    n_pixels, n_samples = waveforms.shape
+    ref_t_start = ref_pulse.size // 2
+    ref_t_end = ref_t_start + n_samples
+    cc_res = np.zeros((n_pixels, n_samples))
+    for ipix in prange(n_pixels):
+        for t in range(n_samples):
+            start = ref_t_start - t
+            end = ref_t_end - t
+            cc_res[ipix, t] = np.sum(waveforms[ipix] * ref_pulse[start:end])
+    return cc_res
 
 
 class CrossCorrelation(WaveformReducer):
@@ -29,6 +46,7 @@ class CrossCorrelation(WaveformReducer):
 
         ref = self._load_reference_pulse(reference_pulse_path)
         self.reference_pulse, self.y_1pe = ref
+        self.reference_pulse = np.pad(self.reference_pulse, n_samples, 'constant')
         self.cc = None
         self.t = None
         self.charge = None
@@ -55,7 +73,7 @@ class CrossCorrelation(WaveformReducer):
         y_1pe = y / np.trapz(y)
 
         # Make maximum of cc result == 1
-        y = y / correlate1d(y_1pe, y).max()
+        y = y / correlate1d(y_1pe[None, :], y).max()
 
         return y, y_1pe
 
