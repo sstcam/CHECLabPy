@@ -73,7 +73,8 @@ class CrossCorrelation(WaveformReducer):
         y_1pe = y / np.trapz(y)
 
         # Make maximum of cc result == 1
-        y = y / correlate1d(y_1pe[None, :], y).max()
+        y_pad = np.pad(y, y.size, 'constant')
+        y = y / correlate1d(y_1pe[None, :], y_pad).max()
 
         return y, y_1pe
 
