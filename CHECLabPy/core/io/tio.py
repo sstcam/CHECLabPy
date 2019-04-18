@@ -56,6 +56,7 @@ class TIOReader(WaveformReader):
         self._n_events = self._reader.fNEvents
         self.run_id = self._reader.fRunID
         self.n_pixels = self._reader.fNPixels
+        self.n_superpixels = self._reader.fNSuperpixels
         self.n_modules = self._reader.fNModules
         self.n_tmpix = self.n_pixels // self.n_modules
         self.n_samples = self._reader.fNSamples
@@ -186,25 +187,17 @@ class ReaderR1(TIOReader):
     """
     Reader for the R1 tio files
     """
-    def __init__(self, path, max_events=None):
-        super().__init__(path, max_events)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if not self.is_r1:
             raise IOError("This script is only setup to read *_r1.tio files!")
-
-    @staticmethod
-    def is_compatible(path):
-        return False
 
 
 class ReaderR0(TIOReader):
     """
     Reader for the R0 tio files
     """
-    def __init__(self, path, max_events=None):
-        super().__init__(path, max_events)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if self.is_r1:
             raise IOError("This script is only setup to read *_r0.tio files!")
-
-    @staticmethod
-    def is_compatible(path):
-        return False
