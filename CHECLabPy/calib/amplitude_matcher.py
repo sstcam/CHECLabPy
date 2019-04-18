@@ -60,7 +60,6 @@ class AmplitudeMatcher:
         self.waveform_reducer = AverageWF(n_pixels, n_samples)
 
         self.global_stage = GLOBALSTAGE.FIRST_PASS
-        self.ready_for_final2 = False
         self.stage = np.zeros(n_superpixels, dtype=np.int16)
         self.current_dac = self.starting_dacs.copy()
         self.previous_dac = self.starting_dacs.copy()
@@ -181,5 +180,11 @@ class AmplitudeMatcher:
         finished = (self.stage == STAGE.FINISH).all()
         if finished:
             self.global_stage += 1
+
+        n_finished = np.sum(self.stage == STAGE.FINISH)
+        current_pass = self.global_stage // 2
+        print(f"[AmplitudeMatcher] "
+              f"PASS: {current_pass} "
+              f"N_FINISHED: {n_finished}")
 
         return next_dac.reshape((32, 16)), average_amplitude_pix, False
