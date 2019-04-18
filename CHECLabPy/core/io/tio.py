@@ -154,6 +154,30 @@ class TIOReader(WaveformReader):
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self._reader.GetSN(tm)
 
+    def get_sipm_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetSiPMTemp(tm)
+
+    def get_primary_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetPrimaryTemp(tm)
+
+    def get_sp_dac(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self._reader.GetSPDAC(tm, sp)
+
+    def get_sp_hvon(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self._reader.GetSPHVON(tm, sp)
+
 
 class ReaderR1(TIOReader):
     """
