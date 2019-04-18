@@ -4,11 +4,11 @@ import numpy as np
 class WaveformCalibrator:
     def __init__(self, pedestal_path, n_pixels, n_samples, sn_list=None):
         if sn_list is None:
-            from target_calib import CalibratorMultiFile
-            self.calibrator = CalibratorMultiFile(pedestal_path, sn_list)
-        else:
             from target_calib import Calibrator
             self.calibrator = Calibrator(pedestal_path)
+        else:
+            from target_calib import CalibratorMultiFile
+            self.calibrator = CalibratorMultiFile(pedestal_path, sn_list)
         self.calibrated_wfs = None
         self.n_pixels = n_pixels
         self.n_samples = n_samples
