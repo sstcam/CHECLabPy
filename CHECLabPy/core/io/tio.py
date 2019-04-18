@@ -8,7 +8,8 @@ import gzip
 
 
 class TIOReader(WaveformReader):
-    def __init__(self, path, max_events=None):
+    def __init__(self, path, max_events=None,
+                 skip_events=2, skip_end_events=1):
         """
         Utilies TargetIO to read R0 and R1 tio files. Enables easy access to
         the waveforms for anaylsis.
@@ -47,7 +48,9 @@ class TIOReader(WaveformReader):
                    "wiki/Installing_CHEC_Software")
             raise ModuleNotFoundError(msg)
 
-        self._reader = WaveformArrayReader(self.path, 2, 1)
+        self._reader = WaveformArrayReader(
+            self.path, skip_events, skip_end_events
+        )
 
         self.is_r1 = self._reader.fR1
         self._n_events = self._reader.fNEvents
