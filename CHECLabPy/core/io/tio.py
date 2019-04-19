@@ -56,7 +56,7 @@ class TIOReader(WaveformReader):
         self._n_events = self._reader.fNEvents
         self.run_id = self._reader.fRunID
         self.n_pixels = self._reader.fNPixels
-        self.n_superpixels = self._reader.fNSuperpixels
+        self.n_superpixels_per_module = self._reader.fNSuperpixelsPerModule
         self.n_modules = self._reader.fNModules
         self.n_tmpix = self.n_pixels // self.n_modules
         self.n_samples = self._reader.fNSamples
@@ -171,14 +171,14 @@ class TIOReader(WaveformReader):
     def get_sp_dac(self, tm, sp):
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
-        if sp >= self.n_superpixels:
+        if sp >= self.n_superpixels_per_module:
             raise IndexError("Requested SP out of range: {}".format(sp))
         return self._reader.GetSPDAC(tm, sp)
 
     def get_sp_hvon(self, tm, sp):
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
-        if sp >= self.n_superpixels:
+        if sp >= self.n_superpixels_per_module:
             raise IndexError("Requested SP out of range: {}".format(sp))
         return self._reader.GetSPHVON(tm, sp)
 
