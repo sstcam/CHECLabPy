@@ -9,13 +9,11 @@ class WaveformCalibrator:
         else:
             from target_calib import CalibratorMultiFile
             self.calibrator = CalibratorMultiFile(pedestal_path, sn_list)
-        self.calibrated_wfs = None
+        self.calibrated_wfs = np.zeros((n_pixels, n_samples), dtype=np.float32)
         self.n_pixels = n_pixels
         self.n_samples = n_samples
 
     def __call__(self, waveforms, fci):
-        if self.calibrated_wfs is None:
-            self.calibrated_wfs = np.zeros(waveforms.shape, dtype=np.float32)
         self.calibrator.ApplyEvent(waveforms, fci, self.calibrated_wfs)
         return self.calibrated_wfs
 

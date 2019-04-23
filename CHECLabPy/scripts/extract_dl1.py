@@ -59,6 +59,7 @@ def main():
         n_events = reader.n_events
         n_modules = reader.n_modules
         n_pixels = reader.n_pixels
+        n_superpixels_per_module = reader.n_superpixels_per_module
         n_samples = reader.n_samples
         pixel_array = np.arange(n_pixels)
 
@@ -124,8 +125,19 @@ def main():
                     )
 
             sn_dict = {}
+            sipm_temp_dict = {}
+            primary_temp_dict = {}
+            dac_dict = {}
+            hvon_dict = {}
             for tm in range(n_modules):
-                sn_dict['TM{:02d}'.format(tm)] = reader.get_sn(tm)
+                tm_str = f'TM{tm:02}'
+                sn_dict[tm_str] = reader.get_sn(tm)
+                sipm_temp_dict[tm_str] = reader.get_sipm_temp(tm)
+                primary_temp_dict[tm_str] = reader.get_primary_temp(tm)
+                for sp in range(n_superpixels_per_module):
+                    tm_sp_str = f'TM{tm:02}_SP{sp:02}'
+                    dac_dict[tm_sp_str] = reader.get_sp_dac(tm, sp)
+                    hvon_dict[tm_sp_str] = reader.get_sp_hvon(tm, sp)
 
             metadata = dict(
                 source="CHECLabPy",
@@ -136,6 +148,7 @@ def main():
                 n_events=n_events,
                 n_modules=n_modules,
                 n_pixels=n_pixels,
+                n_superpixels_per_module=n_superpixels_per_module,
                 n_samples=n_samples,
                 start_time=start_time,
                 end_time=t_cpu,
@@ -149,6 +162,10 @@ def main():
             writer.add_metadata(name='metadata', **metadata)
             writer.add_metadata(name='config', **config)
             writer.add_metadata(name='sn', **sn_dict)
+            writer.add_metadata(name='sipm_temp', **sipm_temp_dict)
+            writer.add_metadata(name='primary_temp', **sipm_temp_dict)
+            writer.add_metadata(name='dac', **dac_dict)
+            writer.add_metadata(name='hvon', **hvon_dict)
             if is_mc:
                 writer.add_metadata(
                     key='mc', name='mcheader', **reader.mcheader

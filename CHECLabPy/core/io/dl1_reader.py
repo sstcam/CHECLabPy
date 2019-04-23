@@ -99,6 +99,10 @@ class DL1Reader(HDF5Reader):
         return self.metadata['n_pixels']
 
     @property
+    def n_superpixels_per_module(self):
+        return self.metadata['n_superpixels_per_module']
+
+    @property
     def n_samples(self):
         return self.metadata['n_samples']
 
@@ -122,7 +126,31 @@ class DL1Reader(HDF5Reader):
         """
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
-        return self.get_metadata('data', 'sn')["TM{:02d}".format(tm)]
+        return self.get_metadata('data', 'sn')[f"TM{tm:02}"]
+
+    def get_sipm_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self.get_metadata('data', 'sipm_temp')[f"TM{tm:02}"]
+
+    def get_primary_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self.get_metadata('data', 'primary_temp')[f"TM{tm:02}"]
+
+    def get_sp_dac(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self.get_metadata('data', 'dac')[f"TM{tm:02}_SP{sp:02}"]
+
+    def get_sp_hvon(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self.get_metadata('data', 'hvon')[f"TM{tm:02}_SP{sp:02}"]
 
     def load_entire_table(self, force=False):
         """
