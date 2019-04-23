@@ -89,6 +89,8 @@ class SpectrumFitProcessor:
         coeff['chi2'] = self.fitter.chi2
         coeff['rchi2'] = self.fitter.reduced_chi2
         coeff['p_value'] = self.fitter.p_value
+        for ill in range(len(pixel_charges)):
+            coeff[f'charge_average{ill}'] = np.mean(pixel_charges[ill])
         self.coeff[pixel] = coeff
 
         errors = dict(self.fitter.errors)
