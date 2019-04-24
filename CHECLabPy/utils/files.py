@@ -66,3 +66,26 @@ def natural_keys(text):
 def sort_file_list(file_list):
     file_list.sort(key=natural_keys)
     return file_list
+
+
+def extract_hv_cfg(path):
+    pattern_dac = re.compile(r"M:(\d+)/F/S:(\d+)\|HV=(\d+)")
+    pattern_hvon = re.compile(r"M:(\d+)/F/S:(\d+)\|HVOn=(\d+)")
+
+    dac = np.zeros((32, 16), dtype=np.int16)
+    hvon = np.zeros((32, 16), dtype=np.int16)
+
+    with open(path) as file:
+        for line in file:
+            if 'HVOn' in line:
+                pattern = pattern_hvon
+                value_array = hvon
+            else:
+                pattern = pattern_dac
+                value_array = dac
+            reg_exp = re.search(pattern, line)
+            if reg_exp:
+                tm = int(reg_exp.group(1))
+                sp = int(reg_exp.group(2))
+                value_array[tm, sp] = int(reg_exp.group(3))
+    return dac, hvon
