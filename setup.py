@@ -32,7 +32,7 @@ setup(
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     package_data={
-        '': ['data/*'],
+        '': ['data/*', 'calib/data/*'],
     },
     entry_points={'console_scripts': [
         'extract_dl1 = CHECLabPy.scripts.extract_dl1:main',

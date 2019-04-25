@@ -22,15 +22,10 @@ class Plotter:
         self.sidebyside = sidebyside
 
         rc = {  # setup matplotlib to use latex for output
-            "font.family": "Latin Modern Roman",
-            "font.serif": [],
-            "font.sans-serif": [],
-            "font.monospace": [],
-            "font.cursive": [],
-            "font.size": 10,
-            "axes.titlesize": 10,
-            "axes.labelsize": 10,
-            "legend.fontsize": 8,
+            "font.size": 8,
+            "axes.titlesize": 8,
+            "axes.labelsize": 8,
+            "legend.fontsize": 6,
             "axes.prop_cycle": plt.cycler(color=plt.cm.Dark2.colors),
 
             # Set x axis
@@ -123,3 +118,6 @@ class Plotter:
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))
         plt.close(self.fig)
+
+    def show(self, *args, **kwargs):
+        plt.show(*args, **kwargs)

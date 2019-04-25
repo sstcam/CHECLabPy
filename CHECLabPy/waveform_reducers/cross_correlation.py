@@ -1,8 +1,26 @@
 from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
 from scipy import interpolate
-from scipy.ndimage import correlate1d
 from CHECLabPy.utils.mapping import get_ctapipe_camera_geometry
+from numba import njit, prange, float64, float32
+
+
+@njit([
+    float64[:, :](float64[:, :], float64[:]),
+    float64[:, :](float32[:, :], float64[:]),
+], parallel=True, nogil=True)
+def correlate1d(waveforms, ref_pulse):
+    n_pixels, n_samples = waveforms.shape
+    ref_pad = np.zeros(ref_pulse.size + n_samples * 2)
+    ref_pad[n_samples:n_samples+ref_pulse.size] = ref_pulse
+    ref_t_start = ref_pad.argmax()
+    cc_res = np.zeros((n_pixels, n_samples))
+    for ipix in prange(n_pixels):
+        for t in prange(n_samples):
+            start = ref_t_start - t
+            end = start + n_samples
+            cc_res[ipix, t] = np.sum(waveforms[ipix] * ref_pad[start:end])
+    return cc_res
 
 
 class CrossCorrelation(WaveformReducer):
@@ -44,33 +62,16 @@ class CrossCorrelation(WaveformReducer):
         x = np.linspace(0, max_sample * time_slice, max_sample + 1)
         y = f(x)
 
-        # Put pulse in center so result peak time matches with input peak
-        pad = y.size - 2 * np.argmax(y)
-        if pad > 0:
-            y = np.pad(y, (pad, 0), mode='constant')
-        else:
-            y = np.pad(y, (0, -pad), mode='constant')
-
         # Create 1p.e. pulse shape
         y_1pe = y / np.trapz(y)
 
         # Make maximum of cc result == 1
-        y = y / correlate1d(y_1pe, y).max()
+        y = y / correlate1d(y_1pe[None, :], y).max()
 
         return y, y_1pe
 
     def get_pulse_height(self, charge):
         return charge * self.y_1pe.max()
-
-    def get_reference_pulse_at_t(self, t):
-        ref_pad = np.pad(self.reference_pulse, self.n_samples, 'constant')
-        ref_t_start = ref_pad.size // 2
-        ref_t_end = ref_t_start + self.n_samples
-        if t > self.n_samples:
-            raise IndexError
-        start = ref_t_start - t
-        end = ref_t_end - t
-        return ref_pad[start:end]
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)

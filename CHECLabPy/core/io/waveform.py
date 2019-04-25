@@ -18,6 +18,7 @@ class WaveformReader(ABC):
         self.run_id = 0
         self.n_modules = 0
         self.n_pixels = 0
+        self.n_superpixels_per_module = 0
         self.n_samples = 0
         self.n_cells = 0
         self.camera_version = ''
@@ -66,6 +67,18 @@ class WaveformReader(ABC):
         pass
 
     def get_sn(self, tm):
+        return np.nan
+
+    def get_sipm_temp(self, tm):
+        return np.nan
+
+    def get_primary_temp(self, tm):
+        return np.nan
+
+    def get_sp_dac(self, tm, sp):
+        return np.nan
+
+    def get_sp_hvon(self, tm, sp):
         return np.nan
 
     @classmethod

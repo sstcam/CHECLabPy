@@ -65,11 +65,6 @@ class CameraImage(Plotter):
         self.ax.autoscale_view()
         self.ax.axis('off')
 
-        self.pixel_highlighting = copy(self.pixels)
-        self.pixel_highlighting.set_facecolor('none')
-        self.pixel_highlighting.set_linewidth(0)
-        self.ax.add_collection(self.pixel_highlighting)
-
     @property
     def image(self):
         return self._image
@@ -211,10 +206,12 @@ class CameraImage(Plotter):
 
         lw_array = np.zeros_like(self.image)
         lw_array[pixels] = linewidth
-        self.pixel_highlighting.set_linewidth(lw_array)
-        self.pixel_highlighting.set_alpha(alpha)
-        self.pixel_highlighting.set_edgecolor(color)
-        # self._update()
+        pixel_highlighting = copy(self.pixels)
+        pixel_highlighting.set_facecolor('none')
+        pixel_highlighting.set_linewidth(lw_array)
+        pixel_highlighting.set_alpha(alpha)
+        pixel_highlighting.set_edgecolor(color)
+        self.ax.add_collection(pixel_highlighting)
 
     def annotate_tm_edge_label(self):
         """

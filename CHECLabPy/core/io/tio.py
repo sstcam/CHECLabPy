@@ -8,7 +8,8 @@ import gzip
 
 
 class TIOReader(WaveformReader):
-    def __init__(self, path, max_events=None):
+    def __init__(self, path, max_events=None,
+                 skip_events=2, skip_end_events=1):
         """
         Utilies TargetIO to read R0 and R1 tio files. Enables easy access to
         the waveforms for anaylsis.
@@ -47,12 +48,15 @@ class TIOReader(WaveformReader):
                    "wiki/Installing_CHEC_Software")
             raise ModuleNotFoundError(msg)
 
-        self._reader = WaveformArrayReader(self.path, 2, 1)
+        self._reader = WaveformArrayReader(
+            self.path, skip_events, skip_end_events
+        )
 
         self.is_r1 = self._reader.fR1
         self._n_events = self._reader.fNEvents
         self.run_id = self._reader.fRunID
         self.n_pixels = self._reader.fNPixels
+        self.n_superpixels_per_module = self._reader.fNSuperpixelsPerModule
         self.n_modules = self._reader.fNModules
         self.n_tmpix = self.n_pixels // self.n_modules
         self.n_samples = self._reader.fNSamples
@@ -154,30 +158,46 @@ class TIOReader(WaveformReader):
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self._reader.GetSN(tm)
 
+    def get_sipm_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetSiPMTemp(tm)
+
+    def get_primary_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetPrimaryTemp(tm)
+
+    def get_sp_dac(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self._reader.GetSPDAC(tm, sp)
+
+    def get_sp_hvon(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self._reader.GetSPHVON(tm, sp)
+
 
 class ReaderR1(TIOReader):
     """
     Reader for the R1 tio files
     """
-    def __init__(self, path, max_events=None):
-        super().__init__(path, max_events)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if not self.is_r1:
             raise IOError("This script is only setup to read *_r1.tio files!")
-
-    @staticmethod
-    def is_compatible(path):
-        return False
 
 
 class ReaderR0(TIOReader):
     """
     Reader for the R0 tio files
     """
-    def __init__(self, path, max_events=None):
-        super().__init__(path, max_events)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if self.is_r1:
             raise IOError("This script is only setup to read *_r0.tio files!")
-
-    @staticmethod
-    def is_compatible(path):
-        return False
