@@ -1,6 +1,6 @@
 
 class AmplitudeCalibrator:
-    def __init__(self, ff, pedestal, mv2pe):
+    def __init__(self, ff, pedestal, conversion):
         """
         Calibrator of the amplitude extracted from the waveform into
         photoelectrons
@@ -10,16 +10,15 @@ class AmplitudeCalibrator:
         ff : ndarray
             Flat-field coefficient for each pixel
         pedestal : ndarray
-            Pedestal for each pixel
-        mv2pe : float
-            Nominal conversion value from "extracted units"
-            (typically mV or mVns) into photoelectrons.
-            This value is what you divide by to convert into photoelectrons.
+            Pedestal coefficient for each pixel
+        conversion : float
+            Nominal conversion value of "extracted units"
+            (typically mV or mVns) per photoelectrons or photons.
             Single value for entire camera.
         """
         self.ff = ff
         self.pedestal = pedestal
-        self.mv2pe = mv2pe
+        self.conversion = conversion
 
     def __call__(self, values, pixels):
         """
@@ -38,4 +37,5 @@ class AmplitudeCalibrator:
             Calibrated photoelectron values. Same shape as values
 
         """
-        return (values - self.pedestal[pixels]) / self.mv2pe * self.ff[pixels]
+        return ((values - self.pedestal[pixels]) /
+                self.conversion * self.ff[pixels])
