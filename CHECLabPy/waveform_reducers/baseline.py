@@ -48,3 +48,10 @@ class Baseline(WaveformReducer):
         Standard deviation of all samples in the waveform.
         """
         return np.std(self.waveforms, axis=1)
+
+    @column
+    def waveform_max(self):
+        """
+        Maxima of the waveform.
+        """
+        return np.max(self.waveforms, axis=1)
