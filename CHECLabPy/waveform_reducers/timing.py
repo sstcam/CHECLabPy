@@ -36,6 +36,16 @@ def obtain_pulse_timing(waveforms, window_start, window_end):
         h = y1 - 0.25 * (y0 - y2) * t
         h_pulse = h - baseline
         t_pulse = t + peakpos
+        if not 0 <= t_pulse < n_samples:
+            t_pulse_arr[pixel] = np.nan
+            h_pulse_arr[pixel] = np.nan
+            fwhm_arr[pixel] = np.nan
+            rise_time_arr[pixel] = np.nan
+            t_l[pixel] = np.nan
+            t_r[pixel] = np.nan
+            t10[pixel] = np.nan
+            t90[pixel] = np.nan
+            continue
         i_pulse = int(np.round(t_pulse))
 
         ###############################
