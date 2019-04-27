@@ -1,9 +1,12 @@
 from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
-from numba import njit, prange, float64, int64
+from numba import njit, prange, float64, float32, int64
 
 
-@njit((float64[:, :], int64, int64), parallel=True)
+@njit([
+    (float64[:, :], int64, int64),
+    (float32[:, :], int64, int64),
+], parallel=True)
 def obtain_pulse_timing(waveforms, window_start, window_end):
     n_pixels, n_samples = waveforms.shape
 
