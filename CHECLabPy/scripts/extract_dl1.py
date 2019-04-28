@@ -10,6 +10,7 @@ from tqdm import tqdm
 from CHECLabPy.core.io import SimtelReader, WaveformReader, HDF5Writer
 from CHECLabPy.core.chain import WaveformReducerChain
 from CHECLabPy.utils.waveform import BaselineSubtractor
+from CHECLabPy.calib import TimeCalibrator
 
 
 class DL1Writer(HDF5Writer):
@@ -50,6 +51,8 @@ def main():
                         help="Path to config file. If no path is given, "
                              "then the default columns will be stored.")
     args = parser.parse_args()
+
+    time_calibrator = TimeCalibrator()
 
     input_paths = args.input_paths
     n_files = len(input_paths)
@@ -95,7 +98,8 @@ def main():
                 if not start_time:
                     start_time = t_cpu
 
-                waveforms_bs = baseline_subtractor.subtract(waveforms)
+                shifted = time_calibrator(waveforms)
+                waveforms_bs = baseline_subtractor.subtract(shifted)
                 bs = baseline_subtractor.baseline
 
                 params = dict(
