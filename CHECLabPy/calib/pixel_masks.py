@@ -71,6 +71,12 @@ class PixelMasks:
         path = get_calib_data(f"pixel_masks/{now}.dat")
         self._save_to_file(path)
 
+    @property
+    def all_mask(self):
+        return np.logical_or.reduce([
+            self.dead, self.low, np.repeat(self.bad_hv, 4)
+        ])
+
     @staticmethod
     def convert_superpixels_to_pixels(superpixel_list):
         superpixels = np.repeat(superpixel_list, 4)
