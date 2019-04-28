@@ -19,11 +19,6 @@ class SiPMDataSheetConverter:
             )
         for key, value in values.items():
             if value is not None:
-                if key in ['pde', 'opct'] and np.any(value < 1):
-                    raise ValueError(
-                        "PDE and OPCT are expressed as percentages "
-                        "in SiPMDataSheetConverter, and are expected to be > 1"
-                    )
                 interpolated = dict()
                 x = self.df[key].values
 
