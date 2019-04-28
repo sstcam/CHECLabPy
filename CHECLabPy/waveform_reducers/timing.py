@@ -6,7 +6,7 @@ from numba import njit, prange, float64, float32, int64
 @njit([
     (float64[:, :], int64, int64),
     (float32[:, :], int64, int64),
-], parallel=True)
+])
 def obtain_pulse_timing(waveforms, window_start, window_end):
     n_pixels, n_samples = waveforms.shape
 
@@ -35,19 +35,13 @@ def obtain_pulse_timing(waveforms, window_start, window_end):
         # Quadratic peak interpolation
         a = y0 - y2
         b = y0 - 2 * y1 + y2
+        if b == 0:
+            continue
         t = 0.5 * a / b
         h = y1 - 0.25 * (y0 - y2) * t
         h_pulse = h - baseline
         t_pulse = t + peakpos
         if not 0 <= t_pulse < n_samples:
-            t_pulse_arr[pixel] = np.nan
-            h_pulse_arr[pixel] = np.nan
-            fwhm_arr[pixel] = np.nan
-            rise_time_arr[pixel] = np.nan
-            t_l[pixel] = np.nan
-            t_r[pixel] = np.nan
-            t10[pixel] = np.nan
-            t90[pixel] = np.nan
             continue
         i_pulse = int(np.round(t_pulse))
 
