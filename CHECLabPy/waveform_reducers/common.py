@@ -2,10 +2,9 @@ from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
 
 
-class Baseline(WaveformReducer):
+class Common(WaveformReducer):
     """
-    Extracts information about the baseline of the waveform (in areas with no
-    pulse).
+    Extracts common information about the waveform
     """
     @column
     def baseline_start_mean(self):
