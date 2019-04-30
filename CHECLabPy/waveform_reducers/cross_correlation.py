@@ -2,7 +2,7 @@ from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
 from scipy import interpolate
 from CHECLabPy.utils.mapping import get_ctapipe_camera_geometry
-from numba import njit, prange, float64, float32
+from numba import njit, guvectorize, prange, float64, float32, int64
 
 
 @njit([
@@ -21,6 +21,34 @@ def correlate1d(waveforms, ref_pulse):
             end = start + n_samples
             cc_res[ipix, t] = np.sum(waveforms[ipix] * ref_pad[start:end])
     return cc_res
+
+
+@guvectorize(
+    [
+        (float64[:], int64, float64[:]),
+        (float32[:], int64, float64[:]),
+    ],
+    '(s),()->()',
+    nopython=True,
+)
+def extract_pulse_time(waveforms, peak_index, ret):
+    n_samples = waveforms.size
+    y0 = waveforms[peak_index - 1]
+    y1 = waveforms[peak_index]
+    y2 = waveforms[peak_index + 1]
+
+    # Quadratic peak interpolation
+    a = y0 - y2
+    b = y0 - 2 * y1 + y2
+    if b == 0:
+        ret[0] = peak_index
+        return
+    t = 0.5 * a / b
+    t_pulse = t + peak_index
+    if not 0 <= t_pulse < n_samples:
+        ret[0] = peak_index
+        return
+    ret[0] = t_pulse
 
 
 class CrossCorrelation(WaveformReducer):
@@ -47,9 +75,9 @@ class CrossCorrelation(WaveformReducer):
 
         ref = self._load_reference_pulse(reference_pulse_path)
         self.reference_pulse, self.y_1pe = ref
-        self.cc = None
-        self.t = None
-        self.charge = None
+        self._cc = np.zeros((2048, 128))
+        self._peak_index = np.zeros(2048, dtype=np.int64)
+        self._charge = np.zeros(2048)
 
     @staticmethod
     def _load_reference_pulse(path):
@@ -75,33 +103,23 @@ class CrossCorrelation(WaveformReducer):
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        self.cc = correlate1d(waveforms, self.reference_pulse)
-        if "t_extract" in self.kwargs:
-            t = self.kwargs['t_extract']
-        else:
-            avg = np.mean(self.cc, axis=0)
-            t = np.argmax(avg)
-            if t < 10:
-                t = 10
-            elif t > self.n_samples - 10:
-                t = self.n_samples - 10
-        self.t = t
-        self.charge = self.cc[:, self.t]
+        self._cc = correlate1d(waveforms, self.reference_pulse)
+        self._peak_index = self._cc.mean(0).argmax()
+        self._charge = self._cc[:, self._peak_index]
 
     @column
     def t_cc(self):
         """
-        Sample corresponding to the maximum of the average cross correlation
-        result. The charge is extracted at this sample.
+        Pulse time extracted from the cross correlation.
         """
-        return self.t
+        return extract_pulse_time(self._cc, self._peak_index)
 
     @column
     def charge_cc(self):
         """
         Charge extracted from the cross correlation.
         """
-        return self.charge
+        return self._charge
 
     @column
     def height_cc(self):
@@ -109,52 +127,37 @@ class CrossCorrelation(WaveformReducer):
         Height of a reference pulse with a cross correlation charge equal to
         that extracted.
         """
-        return self.get_pulse_height(self.charge)
+        return self.get_pulse_height(self._charge)
 
 
 class CrossCorrelationLocal(CrossCorrelation):
     """
-    Same as `CrossCorrelation`, except combined with ctapipe's
-    `LocalPeakIntegrator` to instead use the maximum sample in each pixel for
-    charge extraction.
+    Same as `CrossCorrelation`, , except uses local-peak-finding
     """
     def __init__(self, n_pixels, n_samples, **kwargs):
         super().__init__(n_pixels, n_samples, **kwargs)
-
-        try:
-            from ctapipe.image.extractor import LocalPeakWindowSum
-        except ImportError:
-            msg = ("ctapipe not found. Please either install ctapipe or "
-                   "disable the columns from WaveformReducer {} ({})"
-                   .format(self.__class__.__name__, self.columns))
-            raise ImportError(msg)
-
-        self.integrator = LocalPeakWindowSum(
-            window_shift=0,
-            window_width=1,
-        )
+        self._pa = np.arange(n_pixels)
 
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
-        self.cc = correlate1d(waveforms, self.reference_pulse)
-        charge, pulse_time = self.integrator(self.cc[None, ...])
+        self._cc = correlate1d(waveforms, self.reference_pulse)
 
-        self.t = pulse_time[0]
-        self.charge = charge[0]
+        self._peak_index = self._cc.argmax(1)
+        self._charge = self._cc[self._pa, self._peak_index]
 
     @column
     def t_cc_local(self):
         """
         Time of maximum of the cross correlation result in each pixel.
         """
-        return self.t
+        return extract_pulse_time(self._cc, self._peak_index)
 
     @column
     def charge_cc_local(self):
         """
         Charge extracted from the cross correlation at the local maximum.
         """
-        return self.charge
+        return self._charge
 
     @column
     def height_cc_local(self):
@@ -162,24 +165,23 @@ class CrossCorrelationLocal(CrossCorrelation):
         Height of a reference pulse with a cross correlation charge equal to
         that extracted.
         """
-        return self.get_pulse_height(self.charge)
+        return self.get_pulse_height(self._charge)
 
 
 class CrossCorrelationNeighbour(CrossCorrelation):
     """
-    Same as `CrossCorrelation`, except combined with ctapipe's
-    `NeighbourPeakIntegrator` to instead use the maximum sample from the
-    average of the neighbouring pixels for charge extraction.
+    Same as `CrossCorrelation`, except uses neighbour-peak-finding
     """
     def __init__(self, n_pixels, n_samples, mapping=None, **kwargs):
         super().__init__(n_pixels, n_samples, **kwargs)
+        self._pa = np.arange(n_pixels)
 
         if mapping is None:
             raise ValueError("A mapping must be passed "
                              "to CrossCorrelationNeighbour")
 
         try:
-            from ctapipe.image.extractor import NeighborPeakWindowSum
+            from ctapipe.image.extractor import neighbor_average_waveform
         except ImportError:
             msg = ("ctapipe not found. Please either install ctapipe or "
                    "disable the columns from WaveformReducer {} ({})"
@@ -187,21 +189,15 @@ class CrossCorrelationNeighbour(CrossCorrelation):
             raise ImportError(msg)
 
         camera = get_ctapipe_camera_geometry(mapping)
-
-        self.integrator = NeighborPeakWindowSum(
-            window_shift=0,
-            window_width=1,
-            lwt=0,
-        )
-        self.integrator.neighbors = camera.neighbor_matrix_where
+        self.neighbor_func = neighbor_average_waveform
+        self.neighbors = camera.neighbor_matrix_where
 
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
-        self.cc = correlate1d(waveforms, self.reference_pulse)
-        charge, pulse_time = self.integrator(self.cc[None, ...])
-
-        self.t = pulse_time[0]
-        self.charge = charge[0]
+        self._cc = correlate1d(waveforms, self.reference_pulse)
+        avg_wfs = self.neighbor_func(self._cc[None, :], self.neighbors, 0)[0]
+        self._peak_index = avg_wfs.argmax(1)
+        self._charge = self._cc[self._pa, self._peak_index]
 
     @column
     def t_cc_nn(self):
@@ -209,14 +205,14 @@ class CrossCorrelationNeighbour(CrossCorrelation):
         Time of maximum of the average cross correlation result across the
         neighbouring pixels.
         """
-        return self.t
+        return extract_pulse_time(self._cc, self._peak_index)
 
     @column
     def charge_cc_nn(self):
         """
         Charge extracted from the cross correlation at the neighbour maximum.
         """
-        return self.charge
+        return self._charge
 
     @column
     def height_cc_nn(self):
@@ -224,4 +220,4 @@ class CrossCorrelationNeighbour(CrossCorrelation):
         Height of a reference pulse with a cross correlation charge equal to
         that extracted.
         """
-        return self.get_pulse_height(self.charge)
+        return self.get_pulse_height(self._charge)
