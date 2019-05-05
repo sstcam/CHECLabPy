@@ -90,10 +90,17 @@ def main():
         with DL1Writer(output_path) as writer:
             t_cpu = 0
             start_time = 0
+            n_events_dl1 = 0
+            n_events_stale = 0
             desc = "Processing events"
             for waveforms in tqdm(reader, total=n_events, desc=desc):
                 iev = reader.index
                 t_cpu = reader.t_cpu
+
+                stale = reader.stale.any()
+                if stale:
+                    n_events_stale += 1
+                    continue
 
                 if not start_time:
                     start_time = t_cpu
@@ -127,6 +134,7 @@ def main():
                         pd.DataFrame([reader.pointing]), key='pointing',
                         expectedrows=n_events
                     )
+                n_events_dl1 += 1
 
             sn_dict = {}
             sipm_temp_dict = {}
@@ -149,7 +157,7 @@ def main():
                 is_mc=is_mc,
                 date_generated=pd.datetime.now(),
                 input_path=input_path,
-                n_events=n_events,
+                n_events=n_events_dl1,
                 n_modules=n_modules,
                 n_pixels=n_pixels,
                 n_superpixels_per_module=n_superpixels_per_module,
@@ -158,6 +166,7 @@ def main():
                 end_time=t_cpu,
                 camera_version=reader.camera_version,
                 n_cells=reader.n_cells,
+                n_stale=n_events_stale,
             )
             config = chain.config
             config.pop('mapping', None)
