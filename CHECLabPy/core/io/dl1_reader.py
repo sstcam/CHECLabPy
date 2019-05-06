@@ -24,12 +24,28 @@ class DL1Reader(HDF5Reader):
         """
         super().__init__(path)
         self._monitor = None
+        self._event_lookup = None
 
     def __getitem__(self, iev):
-        start = iev * self.n_pixels
-        stop = (iev + 1) * self.n_pixels
-        df = self.select(start=start, stop=stop)
-        return df
+        try:
+            index = np.where(self.event_lookup == iev)[0][0]
+        except IndexError:
+            raise IndexError(f"No event with iev=={iev} in DL1 file")
+        return self.select_event_index(index)
+
+    def select_event_index(self, index):
+        start = index * self.n_pixels
+        stop = (index + 1) * self.n_pixels
+        return self.store.select(key='data', start=start, stop=stop)
+
+    @property
+    def event_lookup(self):
+        if self._event_lookup is None:
+            print("[DL1Reader] Building Event Lookup")
+            self._event_lookup = self.store.select_column(
+                'data', 'iev'
+            ).values.reshape((self.n_events, self.n_pixels))[:, 0]
+        return self._event_lookup
 
     @property
     def metadata(self):
@@ -202,8 +218,26 @@ class DL1Reader(HDF5Reader):
         df : `pandas.DataFrame`
 
         """
-        for df in self.iterate_over_chunks(self.metadata['n_pixels']):
-            yield df
+        for index in range(self.n_events):
+            yield self.select_event_index(index)
+
+    def iterate_over_selected_events(self, event_list):
+        """
+        Loop over selected events in the file
+
+        Parameters
+        ----------
+        event_list : list
+            List of iev to read
+
+        Returns
+        -------
+        df : `pandas.DataFrame`
+
+        """
+        indicis = np.where(np.isin(self.event_lookup, event_list))[0]
+        for index in indicis:
+            yield self.select_event_index(index)
 
     def iterate_over_chunks(self, chunksize=None, **kwargs):
         """
