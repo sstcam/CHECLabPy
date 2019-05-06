@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib.colors import LogNorm
 from matplotlib.collections import PatchCollection
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, Circle
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
 import os
 from copy import copy
@@ -108,9 +108,11 @@ class CameraImage(Plotter):
                 output.write(out_f)
                 print("Cropped figure saved to: {}".format(pdf_path))
 
-    def add_colorbar(self, label='', pad=-0.2, **kwargs):
+    def add_colorbar(self, label='', pad=-0.2, ax=None, **kwargs):
+        if ax is None:
+            ax = self.ax
         self.colorbar = self.ax.figure.colorbar(
-            self.pixels, label=label, pad=pad, **kwargs
+            self.pixels, label=label, pad=pad, ax=ax, **kwargs
         )
 
     def set_limits_minmax(self, zmin, zmax):
@@ -212,6 +214,7 @@ class CameraImage(Plotter):
         pixel_highlighting.set_alpha(alpha)
         pixel_highlighting.set_edgecolor(color)
         self.ax.add_collection(pixel_highlighting)
+        return pixel_highlighting
 
     def annotate_tm_edge_label(self):
         """
@@ -237,6 +240,26 @@ class CameraImage(Plotter):
                 xpix = df['xpix'].mean()
                 tm_txt = "TM{:02d}".format(tm)
                 self.ax.text(xpix, ypix, tm_txt, va='top', **kw)
+        else:
+            print("Cannot annotate, no mapping attached to class")
+
+    def annotate_led_flaher(self):
+        """
+        Annotate each of the TMs on the top and bottom of the camera
+        """
+        if self._mapping is not None:
+            pix_size = self._mapping.metadata['size']
+            axl = self._mapping.metadata['fOTUpX_l']
+            ayl = self._mapping.metadata['fOTUpY_l'] + 2 * pix_size
+
+            dxl = [1, -1, 1, -1]
+            dyl = [1, 1, -1, -1]
+            for i, (dx, dy) in enumerate(zip(dxl, dyl)):
+                x = axl * dx
+                y = ayl * dy
+                self.ax.add_patch(Circle((x, y), radius=0.01, color='red'))
+                self.ax.text(x, y, f"{i}", fontsize=7, color='white',
+                             ha='center', va='center')
         else:
             print("Cannot annotate, no mapping attached to class")
 

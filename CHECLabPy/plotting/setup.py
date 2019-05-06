@@ -78,7 +78,8 @@ class Plotter:
             self.ax = ax
             self.fig = ax.figure
         else:
-            self.fig, self.ax = self.create_figure()
+            self.fig = self.create_figure()
+            self.ax = self.fig.add_subplot(1, 1, 1)
 
     @staticmethod
     def golden_figsize(scale=0.9):
@@ -98,8 +99,7 @@ class Plotter:
 
     def create_figure(self):
         fig = plt.figure(figsize=self.get_figsize())
-        ax = fig.add_subplot(1, 1, 1)
-        return fig, ax
+        return fig
 
     def add_legend(self, loc="upper right", **kwargs):
         self.ax.legend(loc=loc, **kwargs)
