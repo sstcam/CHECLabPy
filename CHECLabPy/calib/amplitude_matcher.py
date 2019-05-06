@@ -1,6 +1,5 @@
 import numpy as np
 from enum import IntEnum
-from CHECLabPy.waveform_reducers.average_wf import AverageWF
 from CHECLabPy.core.io import ReaderR0
 
 
@@ -37,6 +36,8 @@ class AmplitudeMatcher:
         illumination_profile : CHECLabPy.calib.IlluminationProfile
             Class for handling the illumination profile
         """
+        from CHECLabPy.waveform_reducers.average_wf import AverageWF
+
         self.calibrator = calibrator
         n_pixels = calibrator.n_pixels
         n_samples = calibrator.n_samples
