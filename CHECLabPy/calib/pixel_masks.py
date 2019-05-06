@@ -92,8 +92,8 @@ class PixelMasks:
     def plot(self):
         from CHECLabPy.plotting.camera import CameraImage
         ci = CameraImage.from_camera_version("1.1.0")
-        ci.pixel_highlighting.set_linewidth(0.2)
-        ci.pixel_highlighting.set_edgecolor('black')
+        ci.pixels.set_linewidth(0.2)
+        ci.pixels.set_edgecolor('black')
         ci.add_pixel_text(np.arange(2048), color='red', size=1)
         image = np.full(2048, np.nan)
         image[self.dead] = 1
