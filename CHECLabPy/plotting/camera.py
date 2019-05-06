@@ -243,9 +243,9 @@ class CameraImage(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def annotate_led_flaher(self):
+    def annotate_led_flasher(self):
         """
-        Annotate each of the TMs on the top and bottom of the camera
+        Annotate each of the LED flashers in the four corners of the camera
         """
         if self._mapping is not None:
             pix_size = self._mapping.metadata['size']
