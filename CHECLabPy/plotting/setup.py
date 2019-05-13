@@ -117,7 +117,10 @@ class Plotter:
         self.create_directory(output_dir)
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))
-        plt.close(self.fig)
+        self.close()
 
     def show(self, *args, **kwargs):
         plt.show(*args, **kwargs)
+
+    def close(self):
+        plt.close(self.fig)
