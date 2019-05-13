@@ -97,7 +97,7 @@ def get_superpixel_mapping(mapping):
     df = df.groupby('superpixel').agg(f).reset_index()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', UserWarning)
-        df.metadata = mapping.metadata
+        df.metadata = mapping.metadata.copy()
     df.metadata['n_rows'] = df['row'].max() + 1
     df.metadata['n_columns'] = df['col'].max() + 1
     df.metadata['size'] *= 2
@@ -125,7 +125,7 @@ def get_tm_mapping(mapping):
     df = df.groupby('slot').agg(f, as_index=False).reset_index()
     with warnings.catch_warnings():
         warnings.simplefilter('ignore', UserWarning)
-        df.metadata = mapping.metadata
+        df.metadata = mapping.metadata.copy()
     df.metadata['n_rows'] = df['row'].max() + 1
     df.metadata['n_columns'] = df['col'].max() + 1
     df.metadata['size'] *= 8
