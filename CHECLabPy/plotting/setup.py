@@ -111,11 +111,11 @@ class Plotter:
     def finish(self):
         pass
 
-    def save(self, output_path):
+    def save(self, output_path, **kwargs):
         self.finish()
         output_dir = os.path.dirname(output_path)
         self.create_directory(output_dir)
-        self.fig.savefig(output_path, bbox_inches='tight')
+        self.fig.savefig(output_path, bbox_inches='tight', **kwargs)
         print("Figure saved to: {}".format(output_path))
         self.close()
 

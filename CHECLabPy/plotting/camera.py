@@ -81,8 +81,8 @@ class CameraImage(Plotter):
             self.pixels.autoscale()  # Updates the colorbar
         self.ax.figure.canvas.draw()
 
-    def save(self, output_path):
-        super().save(output_path)
+    def save(self, output_path, **kwargs):
+        super().save(output_path, **kwargs)
         if output_path.endswith('.pdf'):
             try:
                 self.crop(output_path)
