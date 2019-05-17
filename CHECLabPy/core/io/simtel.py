@@ -34,7 +34,9 @@ class SimtelReader(WaveformReader):
             raise ModuleNotFoundError(msg)
 
         self.path = path
-        reader = SimTelEventSource(input_url=path, max_events=max_events)
+        reader = SimTelEventSource(
+            input_url=path, max_events=max_events, back_seekable=True
+        )
         self.seeker = EventSeeker(reader)
 
         first_event = self.seeker[0]
