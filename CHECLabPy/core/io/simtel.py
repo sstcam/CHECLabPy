@@ -20,7 +20,6 @@ class SimtelReader(WaveformReader):
         super().__init__(path, max_events)
 
         try:
-            from ctapipe.calib import HESSIOR1Calibrator
             from ctapipe.io import SimTelEventSource, EventSeeker
         except ModuleNotFoundError:
             msg = "Cannot find ctapipe installation"
@@ -58,8 +57,6 @@ class SimtelReader(WaveformReader):
         self.reference_pulse_path = self._camera_config.GetReferencePulsePath()
         self.camera_version = self._camera_config.GetVersion()
 
-        self.r1 = HESSIOR1Calibrator()
-
         self.gps_time = None
         self.mc_true = None
         self.mc = None
@@ -96,7 +93,6 @@ class SimtelReader(WaveformReader):
         self.run_id = event.r0.obs_id
         self.gps_time = event.trig.gps_time
 
-        self.r1.calibrate(event)
         self.mc_true = event.mc.tel[self.tel].photo_electron_image
 
         self.mc = dict(

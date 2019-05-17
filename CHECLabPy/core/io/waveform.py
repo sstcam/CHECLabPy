@@ -27,6 +27,7 @@ class WaveformReader(ABC):
         self.index = 0
         self.current_tack = 0
         self.first_cell_ids = 0
+        self.stale = np.array([0])
 
     def __iter__(self):
         for iev in range(self.n_events):
