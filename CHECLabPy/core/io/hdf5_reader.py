@@ -105,7 +105,8 @@ class HDF5Reader:
         n_bytes = self.get_n_bytes(key)
         if (n_bytes > 8E9) and not force:
             raise MemoryError(
-                "DataFrame is larger than 8GB, set force=True to proceed with "
+                f"DataFrame is larger than 8GB ({n_bytes*1e-9:.2f}GB), "
+                "set force=True to proceed with "
                 "loading the entire DataFrame into memory"
             )
         if n_bytes > 8E9:
