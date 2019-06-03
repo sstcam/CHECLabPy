@@ -18,8 +18,8 @@ class CtapipeLocalPeakIntegrator(WaveformReducer):
                    .format(self.__class__.__name__, self.columns))
             raise ImportError(msg)
 
-        self.window_size = self.kwargs.get("window_size", 8)
-        self.window_shift = self.kwargs.get("window_shift", 4)
+        self.window_size = self.kwargs.get("window_size", 6)
+        self.window_shift = self.kwargs.get("window_shift", 3)
         self.integrator = LocalPeakWindowSum(
             window_shift=self.window_shift,
             window_width=self.window_size
@@ -71,8 +71,8 @@ class CtapipeNeighbourPeakIntegrator(WaveformReducer):
 
         camera = get_ctapipe_camera_geometry(mapping)
 
-        self.window_size = self.kwargs.get("window_size", 8)
-        self.window_shift = self.kwargs.get("window_shift", 4)
+        self.window_size = self.kwargs.get("window_size", 6)
+        self.window_shift = self.kwargs.get("window_shift", 3)
         self.integrator = NeighborPeakWindowSum(
             window_shift=self.window_shift,
             window_width=self.window_size,
