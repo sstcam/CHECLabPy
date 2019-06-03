@@ -2,25 +2,8 @@ from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
 from scipy import interpolate
 from CHECLabPy.utils.mapping import get_ctapipe_camera_geometry
-from numba import njit, guvectorize, prange, float64, float32, int64
-
-
-@njit([
-    float64[:, :](float64[:, :], float64[:]),
-    float64[:, :](float32[:, :], float64[:]),
-], parallel=True, nogil=True)
-def correlate1d(waveforms, ref_pulse):
-    n_pixels, n_samples = waveforms.shape
-    ref_pad = np.zeros(ref_pulse.size + n_samples * 2)
-    ref_pad[n_samples:n_samples+ref_pulse.size] = ref_pulse
-    ref_t_start = ref_pad.argmax()
-    cc_res = np.zeros((n_pixels, n_samples))
-    for ipix in prange(n_pixels):
-        for t in prange(n_samples):
-            start = ref_t_start - t
-            end = start + n_samples
-            cc_res[ipix, t] = np.sum(waveforms[ipix] * ref_pad[start:end])
-    return cc_res
+from scipy.ndimage import correlate1d
+from numba import guvectorize, float64, float32, int64
 
 
 @guvectorize(
@@ -75,6 +58,8 @@ class CrossCorrelation(WaveformReducer):
 
         ref = self._load_reference_pulse(reference_pulse_path)
         self.reference_pulse, self.y_1pe = ref
+        self.cc_origin = (self.reference_pulse.argmax() -
+                          self.reference_pulse.size // 2)
         self._cc = np.zeros((2048, 128))
         self._peak_index = np.zeros(2048, dtype=np.int64)
         self._charge = np.zeros(2048)
@@ -94,7 +79,10 @@ class CrossCorrelation(WaveformReducer):
         y_1pe = y / np.trapz(y)
 
         # Make maximum of cc result == 1
-        y = y / correlate1d(y_1pe[None, :], y).max()
+        origin = y.argmax() - y.size // 2
+        y = y / correlate1d(
+            y_1pe[None, :], y, mode='constant', origin=origin
+        ).max()
 
         return y, y_1pe
 
@@ -103,7 +91,10 @@ class CrossCorrelation(WaveformReducer):
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        self._cc = correlate1d(waveforms, self.reference_pulse)
+        self._cc = correlate1d(
+            waveforms, self.reference_pulse,
+            mode='constant', origin=self.cc_origin
+        )
         self._peak_index = self._cc.mean(0).argmax()
         self._charge = self._cc[:, self._peak_index]
 
@@ -140,7 +131,10 @@ class CrossCorrelationLocal(CrossCorrelation):
 
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
-        self._cc = correlate1d(waveforms, self.reference_pulse)
+        self._cc = correlate1d(
+            waveforms, self.reference_pulse,
+            mode='constant', origin=self.cc_origin
+        )
 
         self._peak_index = self._cc.argmax(1)
         self._charge = self._cc[self._pa, self._peak_index]
@@ -194,7 +188,10 @@ class CrossCorrelationNeighbour(CrossCorrelation):
 
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
-        self._cc = correlate1d(waveforms, self.reference_pulse)
+        self._cc = correlate1d(
+            waveforms, self.reference_pulse,
+            mode='constant', origin=self.cc_origin
+        )
         avg_wfs = self.neighbor_func(self._cc[None, :], self.neighbors, 0)[0]
         self._peak_index = avg_wfs.argmax(1)
         self._charge = self._cc[self._pa, self._peak_index]
