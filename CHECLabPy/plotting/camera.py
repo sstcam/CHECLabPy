@@ -10,7 +10,7 @@ from copy import copy
 
 
 class CameraImage(Plotter):
-    def __init__(self, xpix, ypix, size, cmap=None, mapping=None, **kwargs):
+    def __init__(self, xpix, ypix, size, cmap=None, **kwargs):
         """
         Create a camera-image plot
 
@@ -34,7 +34,7 @@ class CameraImage(Plotter):
         mpl.rcParams.update(rc)
 
         self._image = None
-        self._mapping = mapping
+        self._mapping = None
         self.colorbar = None
         self.autoscale = True
 
@@ -540,7 +540,7 @@ class CameraImageImshow(Plotter):
         col = mapping['col'].values
         n_rows = mapping.metadata['n_rows']
         n_cols = mapping.metadata['n_columns']
-        image = cls(row, col, n_rows, n_cols,**kwargs)
+        image = cls(row, col, n_rows, n_cols, **kwargs)
         image._mapping = mapping
         return image
 
