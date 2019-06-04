@@ -10,7 +10,7 @@ from copy import copy
 
 
 class CameraImage(Plotter):
-    def __init__(self, xpix, ypix, size, cmap=None, **kwargs):
+    def __init__(self, xpix, ypix, size, cmap=None, mapping=None, **kwargs):
         """
         Create a camera-image plot
 
@@ -34,7 +34,7 @@ class CameraImage(Plotter):
         mpl.rcParams.update(rc)
 
         self._image = None
-        self._mapping = None
+        self._mapping = mapping
         self.colorbar = None
         self.autoscale = True
 
@@ -108,11 +108,14 @@ class CameraImage(Plotter):
                 output.write(out_f)
                 print("Cropped figure saved to: {}".format(pdf_path))
 
-    def add_colorbar(self, label='', pad=-0.2, ax=None, **kwargs):
+    def set_cmap(self,cmap="viridis"):
+        self.pixels.set_cmap(cmap)
+                
+    def add_colorbar(self, label='', pad=-0.2, ax=None,**kwargs):
         if ax is None:
             ax = self.ax
         self.colorbar = self.ax.figure.colorbar(
-            self.pixels, label=label, pad=pad, ax=ax, **kwargs
+            self.pixels, label=label, pad=pad, ax=ax,**kwargs
         )
 
     def set_limits_minmax(self, zmin, zmax):
@@ -394,13 +397,14 @@ class CameraImageImshow(Plotter):
 
     def add_colorbar(self, label=''):
         self.colorbar = self.fig.colorbar(self.camera, label=label)
-
+        
     def set_limits_minmax(self, zmin, zmax):
         """
         Set the color scale limits from min to max
         """
         self.camera.set_clim(zmin, zmax)
         self.autoscale = False
+
 
     def reset_limits(self):
         """
@@ -536,7 +540,7 @@ class CameraImageImshow(Plotter):
         col = mapping['col'].values
         n_rows = mapping.metadata['n_rows']
         n_cols = mapping.metadata['n_columns']
-        image = cls(row, col, n_rows, n_cols, **kwargs)
+        image = cls(row, col, n_rows, n_cols,**kwargs)
         image._mapping = mapping
         return image
 
