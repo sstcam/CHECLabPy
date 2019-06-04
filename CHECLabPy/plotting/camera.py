@@ -108,11 +108,14 @@ class CameraImage(Plotter):
                 output.write(out_f)
                 print("Cropped figure saved to: {}".format(pdf_path))
 
-    def add_colorbar(self, label='', pad=-0.2, ax=None, **kwargs):
+    def set_cmap(self,cmap="viridis"):
+        self.pixels.set_cmap(cmap)
+                
+    def add_colorbar(self, label='', pad=-0.2, ax=None,**kwargs):
         if ax is None:
             ax = self.ax
         self.colorbar = self.ax.figure.colorbar(
-            self.pixels, label=label, pad=pad, ax=ax, **kwargs
+            self.pixels, label=label, pad=pad, ax=ax,**kwargs
         )
 
     def set_limits_minmax(self, zmin, zmax):
@@ -394,13 +397,14 @@ class CameraImageImshow(Plotter):
 
     def add_colorbar(self, label=''):
         self.colorbar = self.fig.colorbar(self.camera, label=label)
-
+        
     def set_limits_minmax(self, zmin, zmax):
         """
         Set the color scale limits from min to max
         """
         self.camera.set_clim(zmin, zmax)
         self.autoscale = False
+
 
     def reset_limits(self):
         """
