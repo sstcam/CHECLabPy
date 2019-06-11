@@ -248,8 +248,8 @@ class CameraPixelWaveformPlotter(Plotter):
         max_ = waveforms.max()
 
         norm = mpl.colors.Normalize(
-            vmin=waveforms.max(0).min(),
-            vmax=waveforms.max(0).max(),
+            vmin=waveforms.max(1).min(),
+            vmax=waveforms.max(1).max(),
         )
 
         desc = "Plotting pixels"

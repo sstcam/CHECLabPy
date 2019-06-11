@@ -1,5 +1,7 @@
 from CHECLabPy.core.io.waveform import WaveformReader
-from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
+from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping, \
+    get_row_column
+import numpy as np
 import pandas as pd
 import struct
 import gzip
@@ -52,10 +54,15 @@ class SimtelReader(WaveformReader):
         self._camera_config = CameraConfiguration(camera_version)
         tc_mapping = self._camera_config.GetMapping(n_modules == 1)
         self.mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
+        n_rows = self.mapping.metadata['n_rows']
+        n_columns = self.mapping.metadata['n_columns']
         pix_x = first_event.inst.subarray.tel[tels[0]].camera.pix_x.value
         pix_y = first_event.inst.subarray.tel[tels[0]].camera.pix_y.value
-        self.mapping['xpix'] = pix_x
-        self.mapping['ypix'] = pix_y
+        row, col = get_row_column(pix_x, pix_y)
+        camera_2d = np.zeros((n_rows, n_columns), dtype=np.int)
+        camera_2d[row, col] = np.arange(self.n_pixels, dtype=np.int)
+        self.pixel_order = camera_2d[self.mapping['row'], self.mapping['col']]
+
         self.reference_pulse_path = self._camera_config.GetReferencePulsePath()
         self.camera_version = self._camera_config.GetVersion()
 
@@ -68,7 +75,9 @@ class SimtelReader(WaveformReader):
     def _get_event(self, iev):
         event = self.seeker[iev]
         self._fill_event_containers(event)
-        return event.r1.tel[self.tel].waveform[0]
+        waveforms = event.r1.tel[self.tel].waveform[0]
+        waveforms = waveforms[self.pixel_order]
+        return waveforms
 
     @staticmethod
     def is_compatible(path):
@@ -88,7 +97,9 @@ class SimtelReader(WaveformReader):
     def __iter__(self):
         for event in self.seeker:
             self._fill_event_containers(event)
-            yield event.r1.tel[self.tel].waveform[0]
+            waveforms = event.r1.tel[self.tel].waveform[0]
+            waveforms = waveforms[self.pixel_order]
+            yield waveforms
 
     def _fill_event_containers(self, event):
         self.index = event.count
@@ -96,6 +107,7 @@ class SimtelReader(WaveformReader):
         self.gps_time = event.trig.gps_time
 
         self.mc_true = event.mc.tel[self.tel].photo_electron_image
+        self.mc_true = self.mc_true[self.pixel_order]
 
         self.mc = dict(
             iev=self.index,
