@@ -198,6 +198,9 @@ class CameraPixelWaveformPlotter(Plotter):
         self.mapping = mapping
         n_rows = self.mapping.metadata['n_rows']
         n_cols = self.mapping.metadata['n_columns']
+        n_rows_tm = n_rows // 6
+        n_cols_tm = n_cols // 6
+        n_tmpix = self.mapping.index.size // self.mapping.metadata['n_modules']
 
         self.fig = plt.figure(figsize=(8.27, 11.69 - 3.5))
         self.fig.subplots_adjust(hspace=0.0, wspace=0.0)
@@ -206,8 +209,7 @@ class CameraPixelWaveformPlotter(Plotter):
 
         total = self.mapping.index.size
         desc = "Creating pixel axes"
-        for _, df_row in tqdm(self.mapping.iterrows(), total=total, desc=desc):
-            pixel = int(df_row['pixel'])
+        for pixel, df_row in tqdm(self.mapping.iterrows(), total=total, desc=desc):
             row = int(df_row['row'])
             col = int(df_row['col'])
 
@@ -220,7 +222,7 @@ class CameraPixelWaveformPlotter(Plotter):
 
             # Add label
             ax.text(
-                0.05, 0.95, f'{pixel}\n{pixel//64},{pixel%64}',
+                0.05, 0.95, f'{pixel}\n{pixel//n_tmpix},{pixel%n_tmpix}',
                 va='top', fontsize=1, transform=ax.transAxes
             )
 
@@ -228,13 +230,13 @@ class CameraPixelWaveformPlotter(Plotter):
             ax.axes.get_yaxis().set_ticks([])
 
             # Outlines
-            if col % 8 != 0:
+            if col % n_cols_tm != 0:
                 ax.spines['left'].set_visible(False)
-            if col % 8 != 7:
+            if col % n_cols_tm != n_cols_tm - 1:
                 ax.spines['right'].set_visible(False)
-            if row % 8 != 0:
+            if row % n_rows_tm != 0:
                 ax.spines['bottom'].set_visible(False)
-            if row % 8 != 7:
+            if row % n_rows_tm != n_rows_tm - 1:
                 ax.spines['top'].set_visible(False)
             ax.axhline(y=0, ls=':', color='grey', lw=0.1, alpha=0.2)
 
@@ -261,3 +263,34 @@ class CameraPixelWaveformPlotter(Plotter):
 
             ax.set_xlim(0, n_samples)
             ax.set_ylim(min_, max_)
+
+    def highlight_pixels(self, pixel_mask, color='red'):
+        n_rows = self.mapping.metadata['n_rows']
+        n_cols = self.mapping.metadata['n_columns']
+        n_rows_tm = n_rows // 6
+        n_cols_tm = n_cols // 6
+
+        for pixel, true in enumerate(pixel_mask):
+            ax = self.ax_dict[pixel]
+
+            if true:
+                for key, spine in ax.spines.items():
+                    spine.set_visible(True)
+                    spine.set_color(color)
+                    spine.set_linewidth(1)
+            else:
+                # Reset
+                for key, spine in ax.spines.items():
+                    spine.set_visible(True)
+                    spine.set_color('black')
+                    spine.set_linewidth(0.1)
+                row = int(self.mapping.iloc[pixel]['row'])
+                col = int(self.mapping.iloc[pixel]['col'])
+                if col % n_cols_tm != 0:
+                    ax.spines['left'].set_visible(False)
+                if col % n_cols_tm != n_cols_tm - 1:
+                    ax.spines['right'].set_visible(False)
+                if row % n_rows_tm != 0:
+                    ax.spines['bottom'].set_visible(False)
+                if row % n_rows_tm != n_rows_tm - 1:
+                    ax.spines['top'].set_visible(False)
