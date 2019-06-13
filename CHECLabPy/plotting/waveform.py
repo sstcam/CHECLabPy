@@ -265,32 +265,34 @@ class CameraPixelWaveformPlotter(Plotter):
             ax.set_ylim(min_, max_)
 
     def highlight_pixels(self, pixel_mask, color='red'):
-        n_rows = self.mapping.metadata['n_rows']
-        n_cols = self.mapping.metadata['n_columns']
-        n_rows_tm = n_rows // 6
-        n_cols_tm = n_cols // 6
-
         for pixel, true in enumerate(pixel_mask):
             ax = self.ax_dict[pixel]
-
             if true:
                 for key, spine in ax.spines.items():
                     spine.set_visible(True)
                     spine.set_color(color)
                     spine.set_linewidth(1)
-            else:
-                # Reset
-                for key, spine in ax.spines.items():
-                    spine.set_visible(True)
-                    spine.set_color('black')
-                    spine.set_linewidth(0.1)
-                row = int(self.mapping.iloc[pixel]['row'])
-                col = int(self.mapping.iloc[pixel]['col'])
-                if col % n_cols_tm != 0:
-                    ax.spines['left'].set_visible(False)
-                if col % n_cols_tm != n_cols_tm - 1:
-                    ax.spines['right'].set_visible(False)
-                if row % n_rows_tm != 0:
-                    ax.spines['bottom'].set_visible(False)
-                if row % n_rows_tm != n_rows_tm - 1:
-                    ax.spines['top'].set_visible(False)
+
+    def reset_pixel_highlight(self):
+        n_pixels = self.mapping.index.size
+        n_rows = self.mapping.metadata['n_rows']
+        n_cols = self.mapping.metadata['n_columns']
+        n_rows_tm = n_rows // 6
+        n_cols_tm = n_cols // 6
+
+        for pixel in range(n_pixels):
+            ax = self.ax_dict[pixel]
+            for key, spine in ax.spines.items():
+                spine.set_visible(True)
+                spine.set_color('black')
+                spine.set_linewidth(0.1)
+            row = int(self.mapping.iloc[pixel]['row'])
+            col = int(self.mapping.iloc[pixel]['col'])
+            if col % n_cols_tm != 0:
+                ax.spines['left'].set_visible(False)
+            if col % n_cols_tm != n_cols_tm - 1:
+                ax.spines['right'].set_visible(False)
+            if row % n_rows_tm != 0:
+                ax.spines['bottom'].set_visible(False)
+            if row % n_rows_tm != n_rows_tm - 1:
+                ax.spines['top'].set_visible(False)
