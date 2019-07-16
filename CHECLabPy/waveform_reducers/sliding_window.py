@@ -109,9 +109,7 @@ class SlidingWindowNeighbour(SlidingWindow):
 
     def _prepare(self, waveforms):
         WaveformReducer._prepare(self, waveforms)
-        avg_wfs = self.neighbor_func(
-            self.waveforms[None, :], self.neighbors, 0
-        )[0]
+        avg_wfs = self.neighbor_func(self.waveforms, self.neighbors, 0)
         self._peak_index = correlate1d(
             avg_wfs, self.window, mode='constant', origin=self.origin
         ).argmax(1)

@@ -192,7 +192,7 @@ class CrossCorrelationNeighbour(CrossCorrelation):
             waveforms, self.reference_pulse,
             mode='constant', origin=self.cc_origin
         )
-        avg_wfs = self.neighbor_func(self._cc[None, :], self.neighbors, 0)[0]
+        avg_wfs = self.neighbor_func(self._cc, self.neighbors, 0)
         self._peak_index = avg_wfs.argmax(1)
         self._charge = self._cc[self._pa, self._peak_index]
 

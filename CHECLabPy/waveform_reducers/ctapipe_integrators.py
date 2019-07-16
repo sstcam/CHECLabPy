@@ -27,10 +27,10 @@ class CtapipeLocalPeakIntegrator(WaveformReducer):
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        charge, pulse_time = self.integrator(waveforms[None, ...])
+        charge, pulse_time = self.integrator(waveforms)
 
-        self.t = pulse_time[0]
-        self.charge = charge[0]
+        self.t = pulse_time
+        self.charge = charge
 
     @column
     def t_local(self):
@@ -82,10 +82,10 @@ class CtapipeNeighbourPeakIntegrator(WaveformReducer):
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        charge, pulse_time = self.integrator(waveforms[None, ...])
+        charge, pulse_time = self.integrator(waveforms)
 
-        self.t = pulse_time[0]
-        self.charge = charge[0]
+        self.t = pulse_time
+        self.charge = charge
 
     @column
     def t_nn(self):
