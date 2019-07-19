@@ -132,7 +132,7 @@ def get_tm_mapping(mapping):
     return df
 
 
-def get_ctapipe_camera_geometry(mapping, plate_scale=None):
+def get_ctapipe_camera_geometry(mapping):
     """
     Obtain a ctapipe CameraGeometry object from the CHECLabPy Mapping object.
 
@@ -155,20 +155,20 @@ def get_ctapipe_camera_geometry(mapping, plate_scale=None):
     geom : `ctapipe.instrument.camera.CameraGeometry`
     """
     from ctapipe.instrument import CameraGeometry
+    from ctapipe.coordinates import EngineeringCameraFrame
     from astropy import units as u
 
-    if plate_scale:
-        mapping['xpix'] /= plate_scale
-        mapping['ypix'] /= plate_scale
-        mapping.metadata['size'] /= plate_scale
+    pix_x = mapping['xpix'].values
+    pix_y = mapping['ypix'].values
 
     camera = CameraGeometry(
         "CHEC",
         pix_id=np.arange(mapping.metadata['n_pixels']),
-        pix_x=mapping['xpix'].values * u.m,
-        pix_y=mapping['ypix'].values * u.m,
+        pix_x=pix_x * u.m,
+        pix_y=pix_y * u.m,
         pix_area=None,
         pix_type='rectangular',
+        frame=EngineeringCameraFrame(n_mirrors=2),
     )
     return camera
 
@@ -209,7 +209,9 @@ def get_row_column(pix_x, pix_y):
     full_y = hist_y[full_row, :][hist_yc[full_row, :].nonzero()]
 
     # Define pixel bin edges based on full row and column of pixels
-    mid_dist = np.min(np.sqrt((full_x - full_x[0]) ** 2 + (full_y - full_y[0]) ** 2)[1:])
+    mid_dist = np.min(
+        np.sqrt((full_x - full_x[0]) ** 2 + (full_y - full_y[0]) ** 2)[1:]
+    ) / 2
     edges_x = np.array([*(full_x - mid_dist), full_x[-1] + mid_dist])
     edges_y = np.array([*(full_y - mid_dist), full_y[-1] + mid_dist])
 
