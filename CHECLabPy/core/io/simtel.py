@@ -23,6 +23,7 @@ class SimtelReader(WaveformReader):
 
         try:
             from ctapipe.io import SimTelEventSource, EventSeeker
+            from ctapipe.coordinates import EngineeringCameraFrame
         except ModuleNotFoundError:
             msg = "Cannot find ctapipe installation"
             raise ModuleNotFoundError(msg)
@@ -56,8 +57,11 @@ class SimtelReader(WaveformReader):
         self.mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
         n_rows = self.mapping.metadata['n_rows']
         n_columns = self.mapping.metadata['n_columns']
-        pix_x = first_event.inst.subarray.tel[tels[0]].camera.pix_x.value
-        pix_y = first_event.inst.subarray.tel[tels[0]].camera.pix_y.value
+        camera_geom = first_event.inst.subarray.tel[tels[0]].camera
+        engineering_frame = EngineeringCameraFrame(n_mirrors=2)
+        engineering_geom = camera_geom.transform_to(engineering_frame)
+        pix_x = engineering_geom.pix_x.value
+        pix_y = engineering_geom.pix_y.value
         row, col = get_row_column(pix_x, pix_y)
         camera_2d = np.zeros((n_rows, n_columns), dtype=np.int)
         camera_2d[row, col] = np.arange(self.n_pixels, dtype=np.int)
