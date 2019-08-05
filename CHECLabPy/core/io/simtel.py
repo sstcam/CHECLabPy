@@ -1,10 +1,16 @@
-from CHECLabPy.core.io.waveform import WaveformReader
+from CHECLabPy.core.io.waveform import WaveformReader, Waveform
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping, \
     get_row_column
 import numpy as np
 import pandas as pd
 import struct
 import gzip
+
+
+class SimtelWaveform(Waveform):
+    @property
+    def t_cpu(self):
+        return self._t_cpu_container
 
 
 class SimtelReader(WaveformReader):
@@ -48,7 +54,6 @@ class SimtelReader(WaveformReader):
         shape = first_event.r0.tel[self.tel].waveform.shape
         _, self.n_pixels, self.n_samples = shape
         self.n_modules = self.n_pixels // 64
-        self.index = 0
 
         n_modules = 32
         camera_version = "1.1.0"
@@ -70,18 +75,32 @@ class SimtelReader(WaveformReader):
         self.reference_pulse_path = self._camera_config.GetReferencePulsePath()
         self.camera_version = self._camera_config.GetVersion()
 
-        self.gps_time = None
-        self.mc_true = None
+        self._iev = None
+        self._t_cpu = None
         self.mc = None
         self.pointing = None
         self.mcheader = None
 
+    def _build_waveform(self, event):
+        self._fill_event_containers(event)
+        samples = event.r1.tel[self.tel].waveform[0][self.pixel_order]
+        mc_true = event.mc.tel[self.tel].photo_electron_image[self.pixel_order]
+        waveform = SimtelWaveform(
+            samples,
+            iev=self._iev,
+            is_r1=True,
+            mc_true=mc_true,
+            t_cpu_container=self._t_cpu
+        )
+        return waveform
+
     def _get_event(self, iev):
         event = self.seeker[iev]
-        self._fill_event_containers(event)
-        waveforms = event.r1.tel[self.tel].waveform[0]
-        waveforms = waveforms[self.pixel_order]
-        return waveforms
+        return self._build_waveform(event)
+
+    def __iter__(self):
+        for event in self.seeker:
+            yield self._build_waveform(event)
 
     @staticmethod
     def is_compatible(path):
@@ -98,24 +117,14 @@ class SimtelReader(WaveformReader):
         int_marker, = struct.unpack('I', marker_bytes)
         return int_marker == 3558836791 or int_marker == 931798996
 
-    def __iter__(self):
-        for event in self.seeker:
-            self._fill_event_containers(event)
-            waveforms = event.r1.tel[self.tel].waveform[0]
-            waveforms = waveforms[self.pixel_order]
-            yield waveforms
-
     def _fill_event_containers(self, event):
-        self.index = event.count
+        self._iev = event.count
+        self._t_cpu = pd.to_datetime(event.trig.gps_time.value, unit='s')
         self.run_id = event.r0.obs_id
-        self.gps_time = event.trig.gps_time
-
-        self.mc_true = event.mc.tel[self.tel].photo_electron_image
-        self.mc_true = self.mc_true[self.pixel_order]
 
         self.mc = dict(
-            iev=self.index,
-            t_cpu=self.t_cpu,
+            iev=self._iev,
+            t_cpu=self._t_cpu,
             energy=event.mc.energy.value,
             alt=event.mc.alt.value,
             az=event.mc.az.value,
@@ -127,8 +136,8 @@ class SimtelReader(WaveformReader):
         )
 
         self.pointing = dict(
-            iev=self.index,
-            t_cpu=self.t_cpu,
+            iev=self._iev,
+            t_cpu=self._t_cpu,
             azimuth_raw=event.mc.tel[self.tel].azimuth_raw,
             altitude_raw=event.mc.tel[self.tel].altitude_raw,
             azimuth_cor=event.mc.tel[self.tel].azimuth_cor,
@@ -178,7 +187,3 @@ class SimtelReader(WaveformReader):
     @property
     def n_events(self):
         return len(self.seeker)
-
-    @property
-    def t_cpu(self):
-        return pd.to_datetime(self.gps_time.value, unit='s')

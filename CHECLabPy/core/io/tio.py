@@ -1,9 +1,7 @@
-import numpy as np
 from astropy.io import fits
-import warnings
-from CHECLabPy.core.io.waveform import WaveformReader
+from CHECLabPy.core.io.waveform import WaveformReader, Waveform
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
-import pandas as pd
+import numpy as np
 import gzip
 
 
@@ -68,41 +66,32 @@ class TIOReader(WaveformReader):
         self.camera_version = self._camera_config.GetVersion()
         self.reference_pulse_path = self._camera_config.GetReferencePulsePath()
 
-        self.current_tack = None
-        self.current_cpu_ns = None
-        self.current_cpu_s = None
-
-        self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
-        self.stale = np.zeros(self.n_pixels, dtype=np.uint8)
-
         if self.is_r1:
-            self.samples = np.zeros((self.n_pixels, self.n_samples),
-                                    dtype=np.float32)
+            self.dtype = np.float32
             self.get_tio_event = self._reader.GetR1Event
         else:
-            self.samples = np.zeros((self.n_pixels, self.n_samples),
-                                    dtype=np.uint16)
+            self.dtype = np.uint16
             self.get_tio_event = self._reader.GetR0Event
 
         if max_events and max_events < self._n_events:
             self._n_events = max_events
 
     def _get_event(self, iev):
-        self.index = iev
-        try:  # TODO: Remove try in future version
-            self.get_tio_event(iev, self.samples, self.first_cell_ids,
-                               self.stale)
-        except TypeError:
-            warnings.warn(
-                "This call to WaveformArrayReader has been deprecated. "
-                "Please update TargetIO",
-                SyntaxWarning
-            )
-            self.get_tio_event(iev, self.samples, self.first_cell_ids)
-        self.current_tack = self._reader.fCurrentTimeTack
-        self.current_cpu_ns = self._reader.fCurrentTimeNs
-        self.current_cpu_s = self._reader.fCurrentTimeSec
-        return self.samples
+        samples = np.zeros((self.n_pixels, self.n_samples), self.dtype)
+        first_cell_id = np.zeros(self.n_pixels, dtype=np.uint16)
+        stale = np.zeros(self.n_pixels, dtype=np.uint8)
+        self.get_tio_event(iev, samples, first_cell_id, stale)
+        t_tack, t_cpu_s, t_cpu_ns = self._reader.GetTimestamps(iev)
+        waveform = Waveform(
+            input_array=samples,
+            iev=iev,
+            is_r1=self.is_r1,
+            first_cell_id=first_cell_id,
+            stale=stale,
+            t_tack=t_tack,
+            t_cpu_container=(t_cpu_s, t_cpu_ns),
+        )
+        return waveform
 
     @staticmethod
     def is_compatible(path):
@@ -128,13 +117,6 @@ class TIOReader(WaveformReader):
     @property
     def n_events(self):
         return self._n_events
-
-    @property
-    def t_cpu(self):
-        return pd.to_datetime(
-            np.int64(self.current_cpu_s * 1E9) + np.int64(self.current_cpu_ns),
-            unit='ns'
-        )
 
     @property
     def mapping(self):

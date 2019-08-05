@@ -19,10 +19,10 @@ class BaselineSubtractor:
 
         self.baseline_waveforms = np.zeros((n_base, n_pixels, n_base_samples))
         for waveforms in source:
-            ev = source.index
-            if ev >= n_base:
+            iev = waveforms.iev
+            if iev >= n_base:
                 break
-            self.baseline_waveforms[ev] = waveforms[:, :n_base_samples]
+            self.baseline_waveforms[iev] = waveforms[:, :n_base_samples]
         self.baseline = np.mean(self.baseline_waveforms, axis=(0, 2))
 
     def update_baseline(self, waveforms):

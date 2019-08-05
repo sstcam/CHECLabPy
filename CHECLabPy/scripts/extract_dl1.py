@@ -94,11 +94,14 @@ def main():
             n_events_stale = 0
             desc = "Processing events"
             for waveforms in tqdm(reader, total=n_events, desc=desc):
-                iev = reader.index
-                t_cpu = reader.t_cpu
+                iev = waveforms.iev
+                t_tack = waveforms.t_tack
+                t_cpu = waveforms.t_cpu
+                stale = waveforms.stale
+                first_cell_id = waveforms.first_cell_id
+                mc_true = waveforms.mc_true
 
-                stale = reader.stale.any()
-                if stale:
+                if stale is not None and stale.any():
                     n_events_stale += 1
                     continue
 
@@ -113,13 +116,13 @@ def main():
                     iev=iev,
                     pixel=pixel_array,
                     t_cpu=t_cpu,
-                    t_tack=reader.current_tack,
-                    first_cell_id=reader.first_cell_ids,
+                    t_tack=t_tack,
+                    first_cell_id=first_cell_id,
                     baseline_subtracted=bs,
                     **chain.process(waveforms_bs),
                 )
-                if is_mc:
-                    params['mc_true'] = reader.mc_true
+                if mc_true is not None:
+                    params['mc_true'] = mc_true
 
                 writer.append(
                     pd.DataFrame(params), key='data',
