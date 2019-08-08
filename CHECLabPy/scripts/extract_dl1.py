@@ -52,8 +52,6 @@ def main():
                              "then the default columns will be stored.")
     args = parser.parse_args()
 
-    time_calibrator = TimeCalibrator()
-
     input_paths = args.input_paths
     n_files = len(input_paths)
     for i_path, input_path in enumerate(input_paths):
@@ -67,6 +65,10 @@ def main():
         pixel_array = np.arange(n_pixels)
 
         is_mc = isinstance(reader, SimtelReader)
+
+        time_calibrator = None
+        if not is_mc:
+            time_calibrator = TimeCalibrator()
 
         kwargs = dict(
             n_pixels=n_pixels,
@@ -105,8 +107,10 @@ def main():
                 if not start_time:
                     start_time = t_cpu
 
-                shifted = time_calibrator(waveforms)
-                waveforms_bs = baseline_subtractor.subtract(shifted)
+                if time_calibrator:
+                    waveforms = time_calibrator(waveforms)
+
+                waveforms_bs = baseline_subtractor.subtract(waveforms)
                 bs = baseline_subtractor.baseline
 
                 params = dict(
