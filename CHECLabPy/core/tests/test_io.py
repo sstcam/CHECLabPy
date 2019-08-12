@@ -18,7 +18,7 @@ def test_readerr1_getitem():
     reader = ReaderR1(get_file("chec_r1.tio"))
     event = reader[1]
     assert event.shape == (reader.n_pixels, reader.n_samples)
-    assert reader.index == 1
+    assert event.iev == 1
 
 
 def test_readerr1_single_module():

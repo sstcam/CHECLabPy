@@ -1,7 +1,42 @@
 import os
 import numpy as np
+import pandas as pd
 from CHECLabPy.core import child_subclasses
 from abc import ABC, abstractmethod
+
+
+class Waveform(np.ndarray):
+    def __new__(cls, input_array, iev, is_r1=False,
+                first_cell_id=0, stale=None, t_tack=0,
+                t_cpu_container=0, mc_true=None):
+        obj = np.asarray(input_array).view(cls)
+        obj.iev = iev
+        obj.is_r1 = is_r1
+        obj.first_cell_id = first_cell_id
+        obj.stale = stale
+        obj.t_tack = t_tack
+        obj._t_cpu_container = t_cpu_container
+        obj.mc_true = mc_true
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None:
+            return
+        self.iev = getattr(obj, 'iev', None)
+        self.is_r1 = getattr(obj, 'is_r1', None)
+        self.first_cell_id = getattr(obj, 'first_cell_id', None)
+        self.stale = getattr(obj, 'stale', None)
+        self.t_tack = getattr(obj, 't_tack', None)
+        self._t_cpu_container = getattr(obj, '_t_cpu_container', None)
+        self.mc_true = getattr(obj, 'mc_true', None)
+
+    @property
+    def t_cpu(self):
+        t_cpu_s, t_cpu_ns = self._t_cpu_container
+        return pd.to_datetime(
+            np.int64(t_cpu_s * 1E9) + np.int64(t_cpu_ns),
+            unit='ns'
+        )
 
 
 class WaveformReader(ABC):
@@ -24,29 +59,25 @@ class WaveformReader(ABC):
         self.camera_version = ''
         self.reference_pulse_path = None
 
-        self.index = 0
-        self.current_tack = 0
-        self.first_cell_ids = 0
-        self.stale = np.array([0])
-
     def __iter__(self):
         for iev in range(self.n_events):
             yield self._get_event(iev)
 
     def __getitem__(self, iev):
-        if isinstance(iev, slice):
+        if isinstance(iev, int):
+            if iev < 0:
+                iev += self.n_events
+            if iev < 0 or iev >= len(self):
+                raise IndexError(
+                    "The requested event ({}) is out of range".format(iev)
+                )
+            return self._get_event(iev)
+        elif isinstance(iev, slice):
             ev_list = [self[ii] for ii in range(*iev.indices(self.n_events))]
             return np.array(ev_list)
         elif isinstance(iev, list):
             ev_list = [self[ii] for ii in iev]
             return np.array(ev_list)
-        elif isinstance(iev, int):
-            if iev < 0:
-                iev += self.n_events
-            if iev < 0 or iev >= len(self):
-                raise IndexError("The requested event ({}) is out of range"
-                                 .format(iev))
-            return np.copy(self._get_event(iev))
         else:
             raise TypeError("Invalid argument type")
 

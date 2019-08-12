@@ -80,8 +80,8 @@ class AmplitudeMatcher:
         n_pixels = reader.n_pixels
         amplitude = np.zeros((n_events, n_pixels))
         for wfs in reader:
-            iev = reader.index
-            fci = reader.first_cell_ids
+            iev = wfs.iev
+            fci = wfs.first_cell_id
             amplitude[iev] = self._extract_amplitude(wfs, fci)
         return amplitude
 
