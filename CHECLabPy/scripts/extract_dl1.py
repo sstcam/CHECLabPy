@@ -93,18 +93,19 @@ def main():
             t_cpu = 0
             start_time = 0
             n_events_dl1 = 0
-            n_events_stale = 0
+            n_events_skipped = 0
             desc = "Processing events"
             for waveforms in tqdm(reader, total=n_events, desc=desc):
                 iev = waveforms.iev
                 t_tack = waveforms.t_tack
                 t_cpu = waveforms.t_cpu
                 stale = waveforms.stale
+                missing_packets = waveforms.missing_packets
                 first_cell_id = waveforms.first_cell_id
                 mc_true = waveforms.mc_true
 
-                if stale is not None and stale.any():
-                    n_events_stale += 1
+                if stale or missing_packets:
+                    n_events_skipped += 1
                     continue
 
                 if not start_time:
@@ -173,7 +174,7 @@ def main():
                 end_time=t_cpu,
                 camera_version=reader.camera_version,
                 n_cells=reader.n_cells,
-                n_stale=n_events_stale,
+                n_skipped=n_events_skipped,
             )
             config = chain.config
             config.pop('mapping', None)

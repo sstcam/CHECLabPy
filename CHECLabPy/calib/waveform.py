@@ -13,6 +13,7 @@ class WaveformCalibrator:
         self.n_samples = n_samples
 
     def __call__(self, waveforms, fci):
+        fci = np.full(self.n_pixels, fci, dtype=np.uint16)
         calibrated_wfs = waveforms.astype(np.float32, copy=True)
         self.calibrator.ApplyEvent(waveforms, fci, calibrated_wfs)
         calibrated_wfs.r1 = True

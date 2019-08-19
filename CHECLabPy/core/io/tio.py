@@ -78,15 +78,14 @@ class TIOReader(WaveformReader):
 
     def _get_event(self, iev):
         samples = np.zeros((self.n_pixels, self.n_samples), self.dtype)
-        first_cell_id = np.zeros(self.n_pixels, dtype=np.uint16)
-        stale = np.zeros(self.n_pixels, dtype=np.uint8)
-        self.get_tio_event(iev, samples, first_cell_id, stale)
-        t_tack, t_cpu_s, t_cpu_ns = self._reader.GetTimestamps(iev)
+        (first_cell_id,  stale,  missing_packets,
+         t_tack, t_cpu_s, t_cpu_ns) = self.get_tio_event(iev, samples)
         waveform = Waveform(
             input_array=samples,
             iev=iev,
             is_r1=self.is_r1,
             first_cell_id=first_cell_id,
+            missing_packets=missing_packets,
             stale=stale,
             t_tack=t_tack,
             t_cpu_container=(t_cpu_s, t_cpu_ns),

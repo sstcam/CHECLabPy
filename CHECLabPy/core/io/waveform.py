@@ -7,13 +7,14 @@ from abc import ABC, abstractmethod
 
 class Waveform(np.ndarray):
     def __new__(cls, input_array, iev, is_r1=False,
-                first_cell_id=0, stale=None, t_tack=0,
+                first_cell_id=0, stale=False, missing_packets=False, t_tack=0,
                 t_cpu_container=0, mc_true=None):
         obj = np.asarray(input_array).view(cls)
         obj.iev = iev
         obj.is_r1 = is_r1
         obj.first_cell_id = first_cell_id
         obj.stale = stale
+        obj.missing_packets = missing_packets
         obj.t_tack = t_tack
         obj._t_cpu_container = t_cpu_container
         obj.mc_true = mc_true
@@ -26,6 +27,7 @@ class Waveform(np.ndarray):
         self.is_r1 = getattr(obj, 'is_r1', None)
         self.first_cell_id = getattr(obj, 'first_cell_id', None)
         self.stale = getattr(obj, 'stale', None)
+        self.missing_packets = getattr(obj, 'missing_packets', None)
         self.t_tack = getattr(obj, 't_tack', None)
         self._t_cpu_container = getattr(obj, '_t_cpu_container', None)
         self.mc_true = getattr(obj, 'mc_true', None)
