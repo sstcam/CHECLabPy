@@ -185,5 +185,9 @@ class SimtelReader(WaveformReader):
             )
 
     @property
+    def is_mc(self):
+        return True
+
+    @property
     def n_events(self):
         return len(self.seeker)

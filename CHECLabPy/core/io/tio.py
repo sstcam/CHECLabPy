@@ -114,6 +114,10 @@ class TIOReader(WaveformReader):
         return True
 
     @property
+    def is_mc(self):
+        return False
+
+    @property
     def n_events(self):
         return self._n_events
 

@@ -97,6 +97,11 @@ class WaveformReader(ABC):
 
     @property
     @abstractmethod
+    def is_mc(self):
+        pass
+
+    @property
+    @abstractmethod
     def n_events(self):
         pass
 
