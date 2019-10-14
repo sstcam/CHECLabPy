@@ -33,7 +33,7 @@ class DL1Writer(HDF5Writer):
         return df
 
     @classmethod
-    def write_dl1_file(cls, reader, extractor, output_path=None):
+    def write_dl1_file(cls, reader, dl1_extractor, output_path=None):
         if not output_path:
             output_path = reader.path.replace('_r1', '_dl1').replace('.tio',
                                                                      '.h5')
@@ -47,7 +47,7 @@ class DL1Writer(HDF5Writer):
             end_time = None
             desc = "Processing events"
             for waveforms in tqdm(reader, total=reader.n_events, desc=desc):
-                if extractor.skip_event(waveforms):
+                if dl1_extractor.skip_event(waveforms):
                     n_events_skipped += 1
                     continue
 
@@ -55,7 +55,7 @@ class DL1Writer(HDF5Writer):
                 if start_time is None:
                     start_time = waveforms.t_cpu
 
-                dl1 = extractor.extract_dl1(waveforms)
+                dl1 = dl1_extractor(waveforms)
                 writer.append(
                     pd.DataFrame(dl1), key='data',
                     expectedrows=reader.n_events * reader.n_pixels
@@ -72,24 +72,23 @@ class DL1Writer(HDF5Writer):
 
                 n_events_processed += 1
 
-            meta = extractor.metadata
+            meta = dl1_extractor.metadata
             meta['n_events'] = n_events_processed
             meta['n_skipped'] = n_events_skipped
             meta['start_time'] = start_time
             meta['end_time'] = end_time
 
             writer.add_mapping(reader.mapping)
-            writer.add_metadata(name='metadata', **meta)
-            writer.add_metadata(name='config', **extractor.config)
-            writer.add_metadata(name='sn', **extractor.sn)
-            writer.add_metadata(name='sipm_temp', **extractor.sipm_temp)
-            writer.add_metadata(name='primary_temp', **extractor.primary_temp)
-            writer.add_metadata(name='dac', **extractor.dac)
-            writer.add_metadata(name='hvon', **extractor.hvon)
+            add_meta = writer.add_metadata
+            add_meta(name='metadata', **meta)
+            add_meta(name='config', **dl1_extractor.config)
+            add_meta(name='sn', **dl1_extractor.sn)
+            add_meta(name='sipm_temp', **dl1_extractor.sipm_temp)
+            add_meta(name='primary_temp', **dl1_extractor.primary_temp)
+            add_meta(name='dac', **dl1_extractor.dac)
+            add_meta(name='hvon', **dl1_extractor.hvon)
             if reader.is_mc:
-                writer.add_metadata(
-                    key='mc', name='mcheader', **reader.mcheader
-                )
+                add_meta(key='mc', name='mcheader', **reader.mcheader)
 
 
 class DL1Extractor:
@@ -150,7 +149,7 @@ class DL1Extractor:
             n_cells=self.reader.n_cells,
         )
 
-    def extract_dl1(self, waveforms):
+    def __call__(self, waveforms):
 
         # Calibrate timing offsets between pixels
         waveforms_tc = waveforms
@@ -207,8 +206,8 @@ def main():
     for i_path, input_path in enumerate(input_paths):
         print("PROGRESS: Reducing file {}/{}".format(i_path + 1, n_files))
         reader = WaveformReader.from_path(input_path, args.max_events)
-        extractor = DL1Extractor(reader, args.config_path)
-        DL1Writer.write_dl1_file(reader, extractor, args.output_path)
+        dl1_extractor = DL1Extractor(reader, args.config_path)
+        DL1Writer.write_dl1_file(reader, dl1_extractor, args.output_path)
 
 
 if __name__ == '__main__':
