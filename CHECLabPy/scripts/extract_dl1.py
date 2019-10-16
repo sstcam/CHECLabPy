@@ -3,7 +3,6 @@ Executable for processing the R1 waveforms, and storing the reduced parameters
 into a HDF5 file, readable as a `pandas.DataFrame`.
 """
 import argparse
-from argparse import ArgumentDefaultsHelpFormatter as Formatter
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -179,7 +178,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Reduce a waveform file into a *_dl1.h5 file containing '
                     'various parameters extracted from the waveforms',
-        formatter_class=Formatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
         '-f', '--files', dest='input_paths', nargs='+',
