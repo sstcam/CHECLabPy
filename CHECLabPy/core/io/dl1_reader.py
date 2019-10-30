@@ -24,12 +24,28 @@ class DL1Reader(HDF5Reader):
         """
         super().__init__(path)
         self._monitor = None
+        self._event_lookup = None
 
     def __getitem__(self, iev):
-        start = iev * self.n_pixels
-        stop = (iev + 1) * self.n_pixels
-        df = self.select(start=start, stop=stop)
-        return df
+        try:
+            index = np.where(self.event_lookup == iev)[0][0]
+        except IndexError:
+            raise IndexError(f"No event with iev=={iev} in DL1 file")
+        return self.select_event_index(index)
+
+    def select_event_index(self, index):
+        start = index * self.n_pixels
+        stop = (index + 1) * self.n_pixels
+        return self.store.select(key='data', start=start, stop=stop)
+
+    @property
+    def event_lookup(self):
+        if self._event_lookup is None:
+            print("[DL1Reader] Building Event Lookup")
+            self._event_lookup = self.store.select_column(
+                'data', 'iev'
+            ).values.reshape((self.n_events, self.n_pixels))[:, 0]
+        return self._event_lookup
 
     @property
     def metadata(self):
@@ -41,7 +57,7 @@ class DL1Reader(HDF5Reader):
 
     @property
     def columns(self):
-        return self.get_columns('data')
+        return self.get_column_names('data')
 
     @property
     def n_rows(self):
@@ -50,6 +66,10 @@ class DL1Reader(HDF5Reader):
     @property
     def n_bytes(self):
         return self.get_n_bytes('data')
+
+    @property
+    def is_mc(self):
+        return self.metadata['is_mc']
 
     @property
     def n_events(self):
@@ -95,6 +115,10 @@ class DL1Reader(HDF5Reader):
         return self.metadata['n_pixels']
 
     @property
+    def n_superpixels_per_module(self):
+        return self.metadata['n_superpixels_per_module']
+
+    @property
     def n_samples(self):
         return self.metadata['n_samples']
 
@@ -118,7 +142,31 @@ class DL1Reader(HDF5Reader):
         """
         if tm >= self.n_modules:
             raise IndexError("Requested TM out of range: {}".format(tm))
-        return self.get_metadata('data', 'sn')["TM{:02d}".format(tm)]
+        return self.get_metadata('data', 'sn')[f"TM{tm:02}"]
+
+    def get_sipm_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self.get_metadata('data', 'sipm_temp')[f"TM{tm:02}"]
+
+    def get_primary_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self.get_metadata('data', 'primary_temp')[f"TM{tm:02}"]
+
+    def get_sp_dac(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self.get_metadata('data', 'dac')[f"TM{tm:02}_SP{sp:02}"]
+
+    def get_sp_hvon(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self.get_metadata('data', 'hvon')[f"TM{tm:02}_SP{sp:02}"]
 
     def load_entire_table(self, force=False):
         """
@@ -170,8 +218,26 @@ class DL1Reader(HDF5Reader):
         df : `pandas.DataFrame`
 
         """
-        for df in self.iterate_over_chunks(self.metadata['n_pixels']):
-            yield df
+        for index in range(self.n_events):
+            yield self.select_event_index(index)
+
+    def iterate_over_selected_events(self, event_list):
+        """
+        Loop over selected events in the file
+
+        Parameters
+        ----------
+        event_list : list
+            List of iev to read
+
+        Returns
+        -------
+        df : `pandas.DataFrame`
+
+        """
+        indicis = np.where(np.isin(self.event_lookup, event_list))[0]
+        for index in indicis:
+            yield self.select_event_index(index)
 
     def iterate_over_chunks(self, chunksize=None, **kwargs):
         """

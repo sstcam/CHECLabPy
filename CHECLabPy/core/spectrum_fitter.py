@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import iminuit
+from iminuit.iminuit_warnings import HesseFailedWarning
 import numpy as np
 from scipy.stats.distributions import poisson
 from scipy.stats import chisquare
@@ -365,7 +366,7 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         self.coeff = m0.values
 
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', iminuit.HesseFailedWarning)
+            warnings.simplefilter('ignore', HesseFailedWarning)
             m0.hesse()
         self.errors = m0.errors
 

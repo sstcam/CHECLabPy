@@ -1,10 +1,9 @@
-import numpy as np
 import pandas as pd
 import warnings
 import os
-import json
 from CHECLabPy import __version__
 from packaging.version import parse
+from collections import defaultdict
 
 
 class HDF5Reader:
@@ -22,9 +21,11 @@ class HDF5Reader:
         if not os.path.exists(path):
             raise FileNotFoundError("File does not exist: {}".format(path))
         self.path = path
-        self.store = self.store = pd.HDFStore(
+        self.store = pd.HDFStore(
             path, mode='r', complevel=9, complib='blosc:blosclz'
         )
+
+        self._generate_contents_list()
 
         if parse(self.version).release[0] < parse(__version__).release[0]:
             warnings.warn(
@@ -36,6 +37,32 @@ class HDF5Reader:
                 "WARNING: HDF5 file created with newer version of CHECLabPy",
                 UserWarning
             )
+
+    def _generate_contents_list(self):
+        """
+        Generate a list of dataframes and metadata in file
+        """
+        self.dataframe_keys = []
+        self.metadata_keys = defaultdict(list)
+        for key in self.store.keys():
+            key = key[1:]
+            try:
+                n_bytes = self.store.get_storer(key).attrs.metadata['n_bytes']
+            except KeyError:
+                n_bytes = 0
+            if key in ['mapping']:
+                continue
+            if not n_bytes == 0:
+                self.dataframe_keys.append(key)
+            attrs = self.store.get_storer(key).attrs
+            for subattr in dir(attrs):
+                if subattr.startswith("_"):
+                    continue
+                if subattr in ['info']:
+                    continue
+                if isinstance(getattr(attrs, subattr), dict):
+                    self.metadata_keys[key].append(subattr)
+        self.metadata_keys = dict(self.metadata_keys)
 
     def __enter__(self):
         return self
@@ -68,11 +95,18 @@ class HDF5Reader:
         df : `pandas.DataFrame`
 
         """
-        print("Reading DataFrame ({}) from HDF5 file".format(key))
+        print("Reading entire DataFrame ({}) from HDF5 file into memory"
+              .format(key))
+        if key not in self.dataframe_keys:
+            raise KeyError(
+                "No DataFrame in file with key: {}. Available keys: {}"
+                .format(key, self.dataframe_keys)
+            )
         n_bytes = self.get_n_bytes(key)
         if (n_bytes > 8E9) and not force:
             raise MemoryError(
-                "DataFrame is larger than 8GB, set force=True to proceed with "
+                f"DataFrame is larger than 8GB ({n_bytes*1e-9:.2f}GB), "
+                "set force=True to proceed with "
                 "loading the entire DataFrame into memory"
             )
         if n_bytes > 8E9:
@@ -87,6 +121,8 @@ class HDF5Reader:
         -------
         mapping : pd.DataFrame
         """
+        if 'mapping' not in self.store:
+            raise KeyError("No Mapping stored in HDF5 file")
         mapping = self.store['mapping']
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
@@ -108,6 +144,16 @@ class HDF5Reader:
         -------
         dict
         """
+        if key not in self.metadata_keys:
+            raise KeyError(
+                "No metadata in file with key: {}. Available keys: {}"
+                .format(key, list(self.metadata_keys.keys()))
+            )
+        elif name not in self.metadata_keys[key]:
+            msg = ("No metadata with key and name: ({}: {}). "
+                   "Available names for key: {}"
+                   .format(key, name, self.metadata_keys[key]))
+            raise KeyError(msg)
         return getattr(self.store.get_storer(key).attrs, name)
 
     def get_n_rows(self, key):
@@ -140,9 +186,9 @@ class HDF5Reader:
         """
         return self.get_metadata(key)["n_bytes"]
 
-    def get_columns(self, key):
+    def get_column_names(self, key):
         """
-        Get columns in the DataFrame
+        Get names of columns in the DataFrame
 
         Parameters
         ----------

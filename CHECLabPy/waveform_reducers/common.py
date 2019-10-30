@@ -2,10 +2,9 @@ from CHECLabPy.core.reducer import WaveformReducer, column
 import numpy as np
 
 
-class Baseline(WaveformReducer):
+class Common(WaveformReducer):
     """
-    Extracts information about the baseline of the waveform (in areas with no
-    pulse).
+    Extracts common information about the waveform
     """
     @column
     def baseline_start_mean(self):
@@ -48,3 +47,10 @@ class Baseline(WaveformReducer):
         Standard deviation of all samples in the waveform.
         """
         return np.std(self.waveforms, axis=1)
+
+    @column
+    def waveform_max(self):
+        """
+        Maxima of the waveform.
+        """
+        return np.max(self.waveforms, axis=1)

@@ -1,13 +1,13 @@
-import numpy as np
 from astropy.io import fits
-import warnings
-import os
+from CHECLabPy.core.io.waveform import WaveformReader, Waveform
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
-import pandas as pd
+import numpy as np
+import gzip
 
 
-class TIOReader:
-    def __init__(self, path, max_events=None):
+class TIOReader(WaveformReader):
+    def __init__(self, path, max_events=None,
+                 skip_events=2, skip_end_events=1):
         """
         Utilies TargetIO to read R0 and R1 tio files. Enables easy access to
         the waveforms for anaylsis.
@@ -35,6 +35,8 @@ class TIOReader:
         max_events : int
             Maximum number of events to read from the file
         """
+        super().__init__(path, max_events)
+
         try:
             from target_io import WaveformArrayReader
             from target_calib import CameraConfiguration
@@ -44,16 +46,15 @@ class TIOReader:
                    "wiki/Installing_CHEC_Software")
             raise ModuleNotFoundError(msg)
 
-        if not os.path.exists(path):
-            raise FileNotFoundError("File does not exist: {}".format(path))
-        self.path = path
-
-        self._reader = WaveformArrayReader(self.path, 2, 1)
+        self._reader = WaveformArrayReader(
+            self.path, skip_events, skip_end_events
+        )
 
         self.is_r1 = self._reader.fR1
-        self.n_events = self._reader.fNEvents
+        self._n_events = self._reader.fNEvents
         self.run_id = self._reader.fRunID
         self.n_pixels = self._reader.fNPixels
+        self.n_superpixels_per_module = self._reader.fNSuperpixelsPerModule
         self.n_modules = self._reader.fNModules
         self.n_tmpix = self.n_pixels // self.n_modules
         self.n_samples = self._reader.fNSamples
@@ -65,72 +66,60 @@ class TIOReader:
         self.camera_version = self._camera_config.GetVersion()
         self.reference_pulse_path = self._camera_config.GetReferencePulsePath()
 
-        self.current_tack = None
-        self.current_cpu_ns = None
-        self.current_cpu_s = None
-
-        self.first_cell_ids = np.zeros(self.n_pixels, dtype=np.uint16)
-        self.stale = np.zeros(self.n_pixels, dtype=np.uint8)
-
         if self.is_r1:
-            self.samples = np.zeros((self.n_pixels, self.n_samples),
-                                    dtype=np.float32)
+            self.dtype = np.float32
             self.get_tio_event = self._reader.GetR1Event
         else:
-            self.samples = np.zeros((self.n_pixels, self.n_samples),
-                                    dtype=np.uint16)
+            self.dtype = np.uint16
             self.get_tio_event = self._reader.GetR0Event
 
-        if max_events and max_events < self.n_events:
-            self.n_events = max_events
+        if max_events and max_events < self._n_events:
+            self._n_events = max_events
 
     def _get_event(self, iev):
-        self.index = iev
-        try:  # TODO: Remove try in future version
-            self.get_tio_event(iev, self.samples, self.first_cell_ids,
-                               self.stale)
-        except TypeError:
-            warnings.warn(
-                "This call to WaveformArrayReader has been deprecated. "
-                "Please update TargetIO",
-                SyntaxWarning
-            )
-            self.get_tio_event(iev, self.samples, self.first_cell_ids)
-        self.current_tack = self._reader.fCurrentTimeTack
-        self.current_cpu_ns = self._reader.fCurrentTimeNs
-        self.current_cpu_s = self._reader.fCurrentTimeSec
-        return self.samples
+        samples = np.zeros((self.n_pixels, self.n_samples), self.dtype)
+        (first_cell_id,  stale,  missing_packets,
+         t_tack, t_cpu_s, t_cpu_ns) = self.get_tio_event(iev, samples)
+        waveform = Waveform(
+            input_array=samples,
+            iev=iev,
+            is_r1=self.is_r1,
+            first_cell_id=first_cell_id,
+            missing_packets=missing_packets,
+            stale=stale,
+            t_tack=t_tack,
+            t_cpu_container=(t_cpu_s, t_cpu_ns),
+        )
+        return waveform
 
-    def __iter__(self):
-        for iev in range(self.n_events):
-            yield self._get_event(iev)
+    @staticmethod
+    def is_compatible(path):
+        with open(path, 'rb') as f:
+            marker_bytes = f.read(1024)
 
-    def __getitem__(self, iev):
-        if isinstance(iev, slice):
-            ev_list = [self[ii] for ii in range(*iev.indices(self.n_events))]
-            return np.array(ev_list)
-        elif isinstance(iev, list):
-            ev_list = [self[ii] for ii in iev]
-            return np.array(ev_list)
-        elif isinstance(iev, int):
-            if iev < 0:
-                iev += self.n_events
-            if iev < 0 or iev >= len(self):
-                raise IndexError("The requested event ({}) is out of range"
-                                 .format(iev))
-            return np.copy(self._get_event(iev))
-        else:
-            raise TypeError("Invalid argument type")
+        # if file is gzip, read the first 4 bytes with gzip again
+        if marker_bytes[0] == 0x1f and marker_bytes[1] == 0x8b:
+            with gzip.open(path, 'rb') as f:
+                marker_bytes = f.read(1024)
 
-    def __len__(self):
-        return self.n_events
+        if b'FITS' not in marker_bytes:
+            return False
+
+        try:
+            h = fits.getheader(path, 0)
+            if 'EVENT_HEADER_VERSION' not in h:
+                return False
+        except IOError:
+            return False
+        return True
 
     @property
-    def t_cpu(self):
-        return pd.to_datetime(
-            np.int64(self.current_cpu_s * 1E9) + np.int64(self.current_cpu_ns),
-            unit='ns'
-        )
+    def is_mc(self):
+        return False
+
+    @property
+    def n_events(self):
+        return self._n_events
 
     @property
     def mapping(self):
@@ -154,23 +143,37 @@ class TIOReader:
             raise IndexError("Requested TM out of range: {}".format(tm))
         return self._reader.GetSN(tm)
 
-    @staticmethod
-    def is_compatible(filepath):
-        try:
-            h = fits.getheader(filepath, 0)
-            if 'EVENT_HEADER_VERSION' not in h:
-                return False
-        except IOError:
-            return False
-        return True
+    def get_sipm_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetSiPMTemp(tm)
+
+    def get_primary_temp(self, tm):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        return self._reader.GetPrimaryTemp(tm)
+
+    def get_sp_dac(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self._reader.GetSPDAC(tm, sp)
+
+    def get_sp_hvon(self, tm, sp):
+        if tm >= self.n_modules:
+            raise IndexError("Requested TM out of range: {}".format(tm))
+        if sp >= self.n_superpixels_per_module:
+            raise IndexError("Requested SP out of range: {}".format(sp))
+        return self._reader.GetSPHVON(tm, sp)
 
 
 class ReaderR1(TIOReader):
     """
     Reader for the R1 tio files
     """
-    def __init__(self, path, max_events=None):
-        super().__init__(path, max_events)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if not self.is_r1:
             raise IOError("This script is only setup to read *_r1.tio files!")
 
@@ -179,7 +182,7 @@ class ReaderR0(TIOReader):
     """
     Reader for the R0 tio files
     """
-    def __init__(self, path, max_events=None):
-        super().__init__(path, max_events)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if self.is_r1:
             raise IOError("This script is only setup to read *_r0.tio files!")

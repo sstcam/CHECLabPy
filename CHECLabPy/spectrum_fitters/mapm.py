@@ -1,9 +1,7 @@
 import numpy as np
-from math import factorial
-from scipy.special import binom
-from numba import jit
+from numba import njit, prange, vectorize, int64, float64
+from math import lgamma, exp, sqrt, log, pi
 from CHECLabPy.core.spectrum_fitter import SpectrumFitter
-from IPython import embed
 
 
 class MAPMFitter(SpectrumFitter):
@@ -39,126 +37,64 @@ class MAPMFitter(SpectrumFitter):
         return mapm_spe_fit(x, **kwargs)
 
 
-C = np.sqrt(2.0 * np.pi)
-FACTORIAL = np.array([factorial(i) for i in range(15)])
-FACTORIAL_0 = FACTORIAL[0]
-NPEAKS = 11
-N = np.arange(NPEAKS)[:, None]
-J = np.arange(NPEAKS)[None, :]
-K = np.arange(1, NPEAKS)[:, None]
-FACTORIAL_J_INV = 1 / FACTORIAL[J]
-BINOM = binom(N - 1, J - 1)
+SQRT2PI = sqrt(2.0 * pi)
 
 
-@jit(nopython=True)
-def _normal_pdf(x, mean=0, std_deviation=1):
+@vectorize([float64(int64, float64)], fastmath=True)
+def poisson(k, mu):
     """
-    Evaluate the normal probability density function. Faster than
-    `scipy.norm.pdf` as it does not check the inputs.
+    Obtain the poisson PMF, using a definition that is mathematically
+    equivalent but numerically stable to avoid arithmetic overflow.
 
-    Parameters
-    ----------
-    x : ndarray
-        The normal probability function will be evaluated
-    mean : float or ndarray
-    std_deviation : float or array_like
+    The result is the probability of observing k events for an average number
+    of events per interval, lambda_.
 
-    Returns
-    -------
-    ndarray
+    Source: https://en.wikipedia.org/wiki/Poisson_distribution
+    """
+    return exp(k * log(mu) - mu - lgamma(k + 1))
+
+
+@vectorize([float64(float64, float64, float64)], fastmath=True)
+def normal_pdf(x, mean=0, std_deviation=1):
+    """
+    Obtain the normal PDF.
+
+    The result is the probability of obseving a value at a position x, for a
+    normal distribution described by a mean m and a standard deviation s.
+
+    Source: https://stackoverflow.com/questions/10847007/using-the-gaussian-probability-density-function-in-c
     """
     u = (x - mean) / std_deviation
-    return np.exp(-0.5 * u ** 2) / (C * std_deviation)
+    return exp(-0.5 * u ** 2) / (SQRT2PI * std_deviation)
 
 
-@jit(nopython=True)
-def _poisson_pmf_j(mu):
-    """
-    Evaluate the poisson pmf for a fixed k=J events
+@njit(fastmath=True, parallel=True)
+def mapm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_):
+    # Obtain pedestal peak
+    p_ped = exp(-lambda_)
+    ped_signal = norm * p_ped * normal_pdf(x, eped, eped_sigma)
 
-    Parameters
-    ----------
-    mu : Average number of events
+    pe_signal = np.zeros(x.size)
+    found = False
 
-    Returns
-    -------
-    ndarray
-    """
-    return mu ** J * np.exp(-mu) * FACTORIAL_J_INV
+    # Loop over the possible total number of cells fired
+    for k in prange(1, 250):
+        p = poisson(k, lambda_)  # Probability to get k avalanches
 
+        # Skip insignificant probabilities
+        if (not found) & (p < 1e-4):
+            continue
+        if found & (p < 1e-4):
+            break
+        found = True
 
-@jit(nopython=True)
-def pedestal_signal(x, norm, eped, eped_sigma, lambda_):
-    """
-    Obtain the signal provided by the pedestal in the pulse spectrum.
+        # Combine spread of pedestal and pe peaks
+        pe_sigma = sqrt(k * spe_sigma ** 2 + eped_sigma ** 2)
 
-    Parameters
-    ----------
-    x : ndarray
-        The x values to evaluate at
-    norm : float
-        Integral of the zeroth peak in the distribution, represents p(0)
-    eped : float
-        Distance of the zeroth peak from the origin
-    eped_sigma : float
-        Sigma of the zeroth peak, represents electronic noise of the system
-    lambda_ : float
-        Poisson mean (average illumination in p.e.)
+        # Evaluate probability at each value of x
+        pe_signal += norm * p * normal_pdf(x, eped + k * spe, pe_sigma)
 
-    Returns
-    -------
-    signal : ndarray
-        The y values of the signal provided by the pedestal.
-    """
-    p_ped = np.exp(-lambda_)  # Poisson PMF for k = 0, mu = lambda_
-    signal = norm * p_ped * _normal_pdf(x, eped, eped_sigma)
-    return signal
-
-
-# @jit
-def pe_signal(k, x, norm, eped, eped_sigma, spe, spe_sigma, lambda_):
-    """
-    Obtain the signal provided by photoelectrons in the pulse spectrum.
-
-    Parameters
-    ----------
-    k : int or ndarray
-        The NPEs to evaluate. A list of NPEs can be passed here, provided it
-        is broadcast as [:, None], and the x input is broadcast as [None, :],
-        the return value will then be a shape [k.size, x.size].
-        k must be greater than or equal to 1.
-    x : ndarray
-        The x values to evaluate at
-    norm : float
-        Integral of the zeroth peak in the distribution, represents p(0)
-    eped : float
-        Distance of the zeroth peak from the origin
-    eped_sigma : float
-        Sigma of the zeroth peak, represents electronic noise of the system
-    spe : float
-        Signal produced by 1 photo-electron
-    spe_sigma : float
-        Spread in the number of photo-electrons incident on the MAPMT
-    lambda_ : float
-        Poisson mean (average illumination in p.e.)
-
-    Returns
-    -------
-    signal : ndarray
-        The y values of the signal provided by the photoelectrons. If k is an
-        integer, this will have same shape as x. If k is an array,
-        and k and x are broadcase correctly, this will have
-        shape [k.size, x.size].
-
-    """
-    # Obtain poisson distribution
-    p = _poisson_pmf_j(lambda_)[0]
-
-    pe_sigma = np.sqrt(k * spe_sigma ** 2 + eped_sigma ** 2)
-
-    signal = norm * p[k] * _normal_pdf(x, eped + k * spe, pe_sigma)
-
-    return signal
+    return ped_signal + pe_signal
 
 
 def mapm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, **kwargs):
@@ -187,16 +123,4 @@ def mapm_spe_fit(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_, **kwargs):
     signal : ndarray
         The y values of the total signal.
     """
-
-    # Obtain pedestal signal
-    params = [norm, eped, eped_sigma, lambda_]
-    ped_s = pedestal_signal(x, *params)
-
-    # Obtain pe signal
-
-    params = [norm, eped, eped_sigma, spe, spe_sigma, lambda_]
-    pe_s = pe_signal(K, x[None, :], *params).sum(0)
-
-    signal = ped_s + pe_s
-
-    return signal
+    return mapm_nb(x, norm, eped, eped_sigma, spe, spe_sigma, lambda_)

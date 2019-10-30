@@ -22,15 +22,10 @@ class Plotter:
         self.sidebyside = sidebyside
 
         rc = {  # setup matplotlib to use latex for output
-            "font.family": "Latin Modern Roman",
-            "font.serif": [],
-            "font.sans-serif": [],
-            "font.monospace": [],
-            "font.cursive": [],
-            "font.size": 10,
-            "axes.titlesize": 10,
-            "axes.labelsize": 10,
-            "legend.fontsize": 8,
+            "font.size": 8,
+            "axes.titlesize": 8,
+            "axes.labelsize": 8,
+            "legend.fontsize": 6,
             "axes.prop_cycle": plt.cycler(color=plt.cm.Dark2.colors),
 
             # Set x axis
@@ -83,7 +78,8 @@ class Plotter:
             self.ax = ax
             self.fig = ax.figure
         else:
-            self.fig, self.ax = self.create_figure()
+            self.fig = self.create_figure()
+            self.ax = self.fig.add_subplot(1, 1, 1)
 
     @staticmethod
     def golden_figsize(scale=0.9):
@@ -103,8 +99,7 @@ class Plotter:
 
     def create_figure(self):
         fig = plt.figure(figsize=self.get_figsize())
-        ax = fig.add_subplot(1, 1, 1)
-        return fig, ax
+        return fig
 
     def add_legend(self, loc="upper right", **kwargs):
         self.ax.legend(loc=loc, **kwargs)
@@ -116,10 +111,16 @@ class Plotter:
     def finish(self):
         pass
 
-    def save(self, output_path):
+    def save(self, output_path, **kwargs):
         self.finish()
         output_dir = os.path.dirname(output_path)
         self.create_directory(output_dir)
-        self.fig.savefig(output_path, bbox_inches='tight')
+        self.fig.savefig(output_path, bbox_inches='tight', **kwargs)
         print("Figure saved to: {}".format(output_path))
+        self.close()
+
+    def show(self, *args, **kwargs):
+        plt.show(*args, **kwargs)
+
+    def close(self):
         plt.close(self.fig)

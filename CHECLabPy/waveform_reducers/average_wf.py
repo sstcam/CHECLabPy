@@ -9,8 +9,8 @@ class AverageWF(WaveformReducer):
     """
     def __init__(self, n_pixels, n_samples, **kwargs):
         super().__init__(n_pixels, n_samples, **kwargs)
-        self.window_size = self.kwargs.get("window_size", 8)
-        self.window_shift = self.kwargs.get("window_shift", 4)
+        self.window_size = self.kwargs.get("window_size", 6)
+        self.window_shift = self.kwargs.get("window_shift", 3)
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)

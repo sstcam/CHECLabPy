@@ -51,6 +51,31 @@ class WaveformReducerChain:
         # CtapipeNeighbourPeakIntegrator
         t_nn=False,
         charge_nn=False,
+
+        # NNLSPulseExtraction
+        charge_nnls=False,
+        nnls_tcharge=False,
+        nnls_tmcharge=False,
+        nnls_tccharge=False,
+        nnls_norm=False,
+        nnls_npulses=False,
+        nnls_errata=False,
+
+        # SlidingWindow
+        t_sliding=False,
+        charge_sliding=False,
+
+        # SlidingWindowLocal
+        t_sliding_local=False,
+        charge_sliding_local=False,
+
+        # SlidingWindowNeighbour
+        t_sliding_nn=False,
+        charge_sliding_nn=False,
+
+        # SPAmplitude
+        sp_argmax=False,
+        sp_max=False,
     )
     # Default setting for additional configuration parameters
     default_config = dict(
