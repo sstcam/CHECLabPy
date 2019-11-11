@@ -2,20 +2,196 @@ from abc import abstractmethod
 import iminuit
 from iminuit.iminuit_warnings import HesseFailedWarning
 import numpy as np
-from scipy.stats.distributions import poisson
-from scipy.stats import chisquare
+from numba import typed, types
 import yaml
 import warnings
+from functools import partial
 
 
-class SpectrumFitterMeta(type):
-    def __call__(cls, *args, **kwargs):
-        obj = type.__call__(cls, *args, **kwargs)
-        obj._post_init()
-        return obj
+class SpectrumParameter:
+    def __init__(self, name: str, inital: float, limits: tuple,
+                 fixed: bool = False, multi: bool = False):
+        """
+        Paramters defining a spectrum description
+
+        TODO: Can be converted into a dataclass once 3.7 is adopted as
+            minimum Python version
+        """
+        self.name = name
+        self.initial = inital
+        self.limits = limits
+        self.fixed = fixed
+        self.multi = multi
 
 
-class SpectrumFitter(metaclass=SpectrumFitterMeta):
+class SpectrumParameterCollection:
+    def __init__(self, spectrum_parameter_list, n_illuminations, config_path=None):
+        """
+        Class to handle the bookkeeping of the SpectrumParameters for a
+        SpectrumFitter
+
+        Parameters
+        ----------
+        spectrum_parameter_list : list
+        n_illuminations : int
+        config_path : str
+        """
+        self.spectrum_parameter_list = spectrum_parameter_list
+        self.n_illuminations = n_illuminations
+        self._lookup_typed = None
+        for param in spectrum_parameter_list:
+            setattr(self, param.name, param)
+
+        # self.load_config(config_path)
+        self._prepare_parameters()
+
+    def __len__(self):
+        return self.spectrum_parameter_list.__len__()
+
+    def __iter__(self):
+        return self.spectrum_parameter_list.__iter__()
+
+    @property
+    def lookup_typed(self):
+        """
+        Numba typed version of `self.lookup`
+
+        TODO: Unikely to be necessary in future versions of numba (0.47)
+
+        Returns
+        -------
+        lookup_typed : numba.typed.List[numba.typed.Dict]
+        """
+        if self._lookup_typed is None:
+            self._lookup_typed = typed.List()
+            for i in range(self.n_illuminations):
+                self._lookup_typed.append(typed.Dict.empty(
+                    key_type=types.unicode_type,
+                    value_type=types.intp
+                ))
+                for key, value in self.lookup[i].items():
+                    self._lookup_typed[i][key] = value
+        return self._lookup_typed
+
+    def _prepare_parameters(self):
+        self.parameter_names = []
+        self.minuit_kwargs = {}
+        self._lookup_typed = None  # Reset
+        self.lookup = [dict() for _ in range(self.n_illuminations)]
+
+        lookup_i = 0
+        for param in self.spectrum_parameter_list:
+            if not param.multi:
+                name = param.name
+                self.parameter_names.append(name)
+                self.minuit_kwargs[name] = param.initial
+                self.minuit_kwargs["limit_" + name] = param.limits
+                self.minuit_kwargs["fix_" + name] = param.fixed
+                for i in range(self.n_illuminations):
+                    self.lookup[i][param.name] = lookup_i
+                lookup_i += 1
+            else:
+                for i in range(self.n_illuminations):
+                    name = param.name + str(i)
+                    self.parameter_names.append(name)
+                    self.minuit_kwargs[name] = param.initial
+                    self.minuit_kwargs["limit_" + name] = param.limits
+                    self.minuit_kwargs["fix_" + name] = param.fixed
+                    self.lookup[i][param.name] = lookup_i
+                    lookup_i += 1
+
+    def update_parameters(self, spectrum_parameter_list):
+        """
+        Update the existing SpectrumParameters attached to this class with new
+        values.
+
+        Parameters
+        ----------
+        spectrum_parameter_list : list
+        """
+        for param in spectrum_parameter_list:
+            getattr(self, param.name).initial = param.initial
+            getattr(self, param.name).limits = param.limits
+            getattr(self, param.name).fixed = param.fixed
+            getattr(self, param.name).multi = param.multi
+
+        self._prepare_parameters()
+
+    # def load_config(self, path):
+    #     """
+    #     Load a YAML configuration file to set initial fitting parameters
+    #
+    #     Parameters
+    #     ----------
+    #     path : str
+    #     """
+    #     print("Loading SpectrumFitter configuration from: {}".format(path))
+    #     with open(path, 'r') as file:
+    #         d = yaml.safe_load(file)
+    #         if d is None:
+    #             return
+    #         self.n_bins = d.pop('nbins', self.n_bins)
+    #         self.range = d.pop('range', self.range)
+    #         for c in self.parameter_names:
+    #             if 'initial' in d:
+    #                 ini = c
+    #                 self.initial[ini] = d['initial'].pop(c, self.initial[ini])
+    #                 if self.initial[ini] is not None:
+    #                     self.initial[ini] = float(self.initial[ini])
+    #             if 'limits' in d:
+    #                 lim = "limit_" + c
+    #                 list_ = d['limits'].pop(c, self.limits[lim])
+    #                 if isinstance(list_, list):
+    #                     self.limits[lim] = tuple([float(l) for l in list_])
+    #                 else:
+    #                     self.limits[lim] = list_
+    #             if 'fix' in d:
+    #                 fix = "fix_" + c
+    #                 self.fix[fix] = d['fix'].pop(c, self.fix[fix])
+    #         if 'initial' in d and not d['initial']:
+    #             d.pop('initial')
+    #         if 'limits' in d and not d['limits']:
+    #             d.pop('limits')
+    #         if 'fix' in d and not d['fix']:
+    #             d.pop('fix')
+    #         if d:
+    #             print("WARNING: Unused SpectrumFitter config parameters:")
+    #             print(d)
+    #
+    # def save_config(self, path):
+    #     """
+    #     Save the configuration of the fit. If the fit has already been
+    #     performed, the fit coefficients will be included as the initial
+    #     coefficients
+    #
+    #     Parameters
+    #     ----------
+    #     path : str
+    #         Path to save the configuration file to
+    #     """
+    #     print("Writing SpectrumFitter configuration to: {}".format(path))
+    #     initial = dict()
+    #     limits = dict()
+    #     fix = dict()
+    #     coeff_dict = self.coeff if self.coeff else self.initial
+    #     for c, val in coeff_dict.items():
+    #         initial[c] = val
+    #     for c, val in self.limits.items():
+    #         limits[c.replace("limit_", "")] = val
+    #     for c, val in self.fix.items():
+    #         fix[c.replace("fix_", "")] = val
+    #     data = dict(
+    #         n_bins=self.n_bins,
+    #         range=self.range,
+    #         initial=initial,
+    #         limits=limits,
+    #         fix=fix
+    #     )
+    #     with open(path, 'w') as outfile:
+    #         yaml.safe_dump(data, outfile, default_flow_style=False)
+
+
+class SpectrumFitter:
     def __init__(self, n_illuminations, config_path=None):
         """
         Base class for fitters of Single-Photoelectron spectra. Built to
@@ -28,238 +204,62 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
         config_path : str
             Path to JAML config file
         """
-        self.hist = None
-        self.edges = None
-        self.between = None
-        self.coeff = None
-        self.errors = None
-        self.p0 = None
-
-        self.nbins = 100
-        self.range = [-10, 100]
-
-        self.coeff_names = []
-        self.multi_coeff = []
-        self.initial = dict()
-        self.limits = dict()
-        self.fix = dict()
-
         self.n_illuminations = n_illuminations
-        self.config_path = config_path
 
-    def _post_init(self):
-        if self.config_path:
-            self.load_config(self.config_path)
+        self.parameters = None
+        self.n_bins = 100
+        self.range = (-10, 100)
+
+        self.charge_hist_x = None
+        self.charge_hist_y = None
+        self.charge_hist_y_typed = None
+        self.charge_hist_edges = None
+        self.fit_result_values = None
+        self.fit_result_errors = None
+
+        # if config_path:
+        #     self.load_config(config_path)
 
     @property
-    def fit_x(self):
+    def fit_result_curve(self):
         """
-        Default X coordinates for the fit
+        Obtain the curve resulting from the fit result
 
         Returns
         -------
-        ndarray
+        fit_x : ndarray
+        fit_y : list[ndarray]
+            Y values for each illumination
         """
-        return np.linspace(self.edges[0], self.edges[-1], 10*self.edges.size)
-
-    @property
-    def fit(self):
-        """
-        Curve for the current fit result
-
-        Returns
-        -------
-        ndarray
-        """
-        return self.fit_function(x=self.fit_x, **self.coeff)
-
-    @property
-    def n_coeff(self):
-        """
-        Number of free parameters in the fit
-
-        Returns
-        -------
-        int
-        """
-        return len(self.coeff) - sum(self.fix.values())
-
-    @property
-    def chi2(self):
-        """
-        Chi-squared statistic
-
-        Returns
-        -------
-        float
-        """
-        h = np.hstack(self.hist)
-        f = np.hstack(self.fit_function(x=self.between, **self.coeff))
-        b = h >= 5
-        h = h[b]
-        f = f[b]
-        chi2 = np.sum(np.power(h - f, 2)/f)
-        return chi2
-
-    @property
-    def dof(self):
-        """
-        Degrees of freedom based on the histogram and the number of free
-        parameters
-
-        Returns
-        -------
-        int
-        """
-        h = np.hstack(self.hist)
-        n = h[h >= 5].size
-        m = self.n_coeff
-        dof = n - 1 - m
-        return dof
-
-    @property
-    def reduced_chi2(self):
-        """
-        Reduced Chi-Squared statistic
-
-        Returns
-        -------
-        float
-        """
-        return self.chi2 / self.dof
-
-    @property
-    def p_value(self):
-        """
-        The probability value for the resulting fit of obtaining a spectrum
-        equal to or more extreme than what was actually measured.
-
-        In this context, a high p-value indicates a good fit.
-
-        Returns
-        -------
-        float
-        """
-        h = np.hstack(self.hist)
-        f = np.hstack(self.fit_function(x=self.between, **self.coeff))
-        b = h >= 5
-        h = h[b]
-        f = f[b]
-        return chisquare(h, f, self.n_coeff).pvalue
-
-    def add_parameter(self, name, initial, lower, upper,
-                      fix=False, multi=False):
-        """
-        Add a new parameter for this particular fit function
-
-        Parameters
-        ----------
-        name : str
-            Name of the parameter
-        initial : float
-            Initial value for the parameter
-        lower : float
-            Lower limit for the parameter
-        upper : float
-            Upper limit for the parameter
-        fix : bool
-            Specify if the parameter should be fixed
-        multi : bool
-            Specify if the parameter should be duplicated for additional
-            illuminations
-        """
-        if not multi:
-            self.coeff_names.append(name)
-            self.initial[name] = initial
-            self.limits["limit_" + name] = (lower, upper)
-            self.fix["fix_" + name] = fix
-        else:
-            self.multi_coeff.append(name)
-            for i in range(self.n_illuminations):
-                name_i = name + str(i)
-                self.coeff_names.append(name_i)
-                self.initial[name_i] = initial
-                self.limits["limit_" + name_i] = (lower, upper)
-                self.fix["fix_" + name_i] = fix
-        # ds = "minimize_function(" + ", ".join(self.coeff_names) + ")"
-        # self._minimize_function.__func__.__doc__ = ds
-
-    def load_config(self, path):
-        """
-        Load a YAML configuration file to set initial fitting parameters
-
-        Parameters
-        ----------
-        path : str
-        """
-        print("Loading SpectrumFitter configuration from: {}".format(path))
-        with open(path, 'r') as file:
-            d = yaml.safe_load(file)
-            if d is None:
-                return
-            self.nbins = d.pop('nbins', self.nbins)
-            self.range = d.pop('range', self.range)
-            for c in self.coeff_names:
-                if 'initial' in d:
-                    ini = c
-                    self.initial[ini] = d['initial'].pop(c, self.initial[ini])
-                    if(self.initial[ini] is not None):
-                        self.initial[ini] = float(self.initial[ini])
-                if 'limits' in d:
-                    lim = "limit_" + c
-                    list_ = d['limits'].pop(c, self.limits[lim])
-                    if(isinstance(list_,list)):
-                        self.limits[lim] = tuple([float(l) for l in list_])
-                    else:
-                        self.limits[lim] = list_
-                if 'fix' in d:
-                    fix = "fix_" + c
-                    self.fix[fix] = d['fix'].pop(c, self.fix[fix])
-            if 'initial' in d and not d['initial']:
-                d.pop('initial')
-            if 'limits' in d and not d['limits']:
-                d.pop('limits')
-            if 'fix' in d and not d['fix']:
-                d.pop('fix')
-            if d:
-                print("WARNING: Unused SpectrumFitter config parameters:")
-                print(d)
-
-    def save_config(self, path):
-        """
-        Save the configuration of the fit. If the fit has already been
-        performed, the fit coefficients will be included as the initial
-        coefficients
-
-        Parameters
-        ----------
-        path : str
-            Path to save the configuration file to
-        """
-        print("Writing SpectrumFitter configuration to: {}".format(path))
-        initial = dict()
-        limits = dict()
-        fix = dict()
-        coeff_dict = self.coeff if self.coeff else self.initial
-        for c, val in coeff_dict.items():
-            initial[c] = val
-        for c, val in self.limits.items():
-            limits[c.replace("limit_", "")] = val
-        for c, val in self.fix.items():
-            fix[c.replace("fix_", "")] = val
-        data = dict(
-            nbins=self.nbins,
-            range=self.range,
-            initial=initial,
-            limits=limits,
-            fix=fix
+        fit_x = np.linspace(
+            self.range[0], self.range[1], self.n_bins*10, dtype=np.float32
         )
-        with open(path, 'w') as outfile:
-            yaml.safe_dump(data, outfile, default_flow_style=False)
+        fit_y = self._get_spectra(
+            self.n_illuminations,
+            fit_x,
+            self.parameters.lookup_typed,
+            *self.fit_result_values.values()
+        )
+        return fit_x, fit_y
+
+    @property
+    def charge_histogram(self):
+        """
+        Obtain the histagram variables for the latest application
+
+        Returns
+        -------
+        charge_hist_x : ndarray
+        charge_hist_y : list[ndarray]
+        charge_hist_edges : ndarray
+        """
+        return self.charge_hist_x, self.charge_hist_y, self.charge_hist_edges
 
     def apply(self, *charges):
         """
-        Fit the spectra
+        Create charge histogram and fit it with a model of the spectrum
+
+        Resulting parameters values are found in `self.fit_result_values`
 
         Parameters
         ----------
@@ -268,184 +268,98 @@ class SpectrumFitter(metaclass=SpectrumFitterMeta):
             self.n_illuminations.
         """
         assert len(charges) == self.n_illuminations
-        bins = self.nbins
-        range_ = self.range
-        self.hist = []
+        self.charge_hist_y = []
+        self.charge_hist_y_typed = typed.List()
         for i in range(self.n_illuminations):
-            h, e, b = self.get_histogram(charges[i], bins, range_)
-            self.hist.append(h)
-            self.edges = e
-            self.between = b
+            hist, edges = np.histogram(
+                charges[i], bins=self.n_bins, range=self.range, density=True
+            )
+            between = (edges[1:] + edges[:-1]) / 2
 
-        self._perform_fit()
+            self.charge_hist_x = between.astype(np.float32)
+            self.charge_hist_y.append(hist.astype(np.float32))
+            self.charge_hist_y_typed.append(hist.astype(np.float32))
+            self.charge_hist_edges = edges.astype(np.float32)
+
+        minimize_function = partial(
+            self._get_likelihood,
+            self.n_illuminations,
+            self.charge_hist_x,
+            self.charge_hist_y_typed,
+            self.parameters.lookup_typed
+        )
+
+        m0 = iminuit.Minuit(
+            minimize_function, **self.parameters.minuit_kwargs,
+            print_level=0, pedantic=False, throw_nan=True,
+            forced_parameters=self.parameters.parameter_names
+        )
+        m0.migrad()
+        self.fit_result_values = m0.values
+
+        # with warnings.catch_warnings():
+        #     warnings.simplefilter('ignore', HesseFailedWarning)
+        m0.hesse()
+        self.fit_result_errors = m0.errors
 
     @staticmethod
-    def get_histogram(charge, bins, range_):
+    @abstractmethod
+    def _get_spectra(n_illuminations, data_x, data_y, lookup, *parameter_values):
         """
-        Obtain a histogram for the spectrum.
+        Abstract method to be defined by the SpectrumFitter subclass
 
-        Look at `np.histogram` documentation for further info on Parameters.
+        Define how the spectrum and likelihood is calculated, and combined for
+        each illumination
 
         Parameters
         ----------
-        charge : ndarray
-        bins
-        range_
+        n_illuminations : int
+            Number of illuminations to fit simultaneously
+        data_x : ndarray
+            Datapoints to calculate the spectra at
+        lookup : numba.typed.List[numba.typed.Dict]
+            Lookup for position of each spectrum parameter in the
+            parameters tuple
+        parameter_values: tuple
+            Values for each parameter of the spectrum
 
         Returns
         -------
-        hist : ndarray
-            The histogram
-        edges : ndarray
-            Edges of the histogram
-        between : ndarray
-            X values of the middle of each bin
-        """
-        hist, edges = np.histogram(charge, bins=bins, range=range_)
-        between = (edges[1:] + edges[:-1]) / 2
-
-        return hist, edges, between
-
-    def get_histogram_summed(self, charges, bins, range_):
-        """
-        Get the histogram including the spectra from all the illuminations.
-
-        Look at `np.histogram` documentation for further info on Parameters.
-
-        Parameters
-        ----------
-        charges : list
-        bins
-        range_
-
-        Returns
-        -------
-        hist : ndarray
-            The histogram
-        edges : ndarray
-            Edges of the histogram
-        between : ndarray
-            X values of the middle of each bin
-        """
-        charges_stacked = np.hstack(charges)
-        hist, edge, between = self.get_histogram(charges_stacked, bins, range_)
-        return hist, edge, between
-
-    def get_fit_summed(self, x, **coeff):
-        """
-        Get the summed fit for all the illuminations.
-
-        Parameters
-        ----------
-        x : ndarray
-            X values for the fit
-        coeff
-            The fit coefficients to apply to the fit function.
-
-        Returns
-        -------
-        ndarray
-        """
-        return np.sum(self.fit_function(x, **coeff), 0)
-
-    def _perform_fit(self):
-        """
-        Run iminuit on the fit function to find the best fit
-        """
-        self.coeff = {}
-        self.p0 = self.initial.copy()
-        limits = self.limits.copy()
-        fix = self.fix.copy()
-        self._prepare_params(self.p0, limits, fix)
-
-        m0 = iminuit.Minuit(self._minimize_function,
-                            **self.p0, **limits, **fix,
-                            print_level=0, pedantic=False, throw_nan=True,
-                            forced_parameters=self.coeff_names)
-        m0.migrad()
-        self.coeff = m0.values
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', HesseFailedWarning)
-            m0.hesse()
-        self.errors = m0.errors
-
-    def _prepare_params(self, p0, limits, fix):
-        """
-        Apply some automation to the contents of initial, limits, and fix
-        dictionaries.
-
-        Parameters
-        ----------
-        p0 : dict
-            Initial values dict
-        limits : dict
-            Dict containing the limits for each parameter
-        fix : dict
-            Dict containing which parameters should be fixed
+        spectra : list[ndarray]
+            The calculated spectrum for each illumination corresponding to the
+            specified parameter_values
         """
         pass
 
-    def _minimize_function(self, *args):
+    @staticmethod
+    @abstractmethod
+    def _get_likelihood(n_illuminations, data_x, data_y, lookup, *parameter_values):
         """
-        Function which calculates the likelihood to be minimised.
+        Abstract method to be defined by the SpectrumFitter subclass
+
+        Define how the spectrum and likelihood is calculated, and combined for
+        each illumination
 
         Parameters
         ----------
-        args
-            The values to apply to the fit function.
+        n_illuminations : int
+            Number of illuminations to fit simultaneously
+        data_x : ndarray
+            Datapoints to calculate the spectra at
+        data_y : list[ndarray]
+            The Y values to compare against the calculated spectrum to
+            calculate the likelihood.
+            Shape: (n_illuminations, data_x.size)
+        lookup : numba.typed.List[numba.typed.Dict]
+            Lookup for position of each spectrum parameter in the
+            parameters tuple
+        parameter_values: tuple
+            Values for each parameter in this iteration of the iminuit minimization
 
         Returns
         -------
         likelihood : float
-        """
-        kwargs = dict(zip(self.coeff_names, args))
-        x = self.between
-        y = self.hist
-        p = self.fit_function(x, **kwargs)
-        like = [-2 * poisson._logpmf(y[i], p[i])
-                for i in range(self.n_illuminations)]
-        like = np.hstack(like)
-        return np.nansum(like)
-
-    def fit_function(self, x, **kwargs):
-        """
-        Function which applies the parameters for each illumination and
-        returns the resulting curves.
-
-        Parameters
-        ----------
-        x : ndarray
-            X values
-        kwargs
-            The values to apply to the fit function
-
-        Returns
-        -------
-
-        """
-        p = []
-        for i in range(self.n_illuminations):
-            for coeff in self.multi_coeff:
-                kwargs[coeff] = kwargs[coeff + str(i)]
-            p.append(self._fit(x, **kwargs))
-        return p
-
-    @staticmethod
-    @abstractmethod
-    def _fit(x, **kwargs):
-        """
-        Define the low-level function to be used in the fit
-
-        Parameters
-        ----------
-        x : ndarray
-            X values
-        kwargs
-            The values to apply to the fit function
-
-        Returns
-        -------
-        ndarray
+            The likelihood to be minimised, resulting from the comparison
+            between the calculated spectrum and data_y.
         """
         pass
