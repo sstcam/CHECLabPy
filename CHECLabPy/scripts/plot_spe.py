@@ -1,110 +1,107 @@
 """
-Executable for plotting the extractd fit parameters from extract_spe
+Executable for plotting the extracted fit parameters from extract_spe
 """
 import argparse
-import os
-from argparse import ArgumentDefaultsHelpFormatter as Formatter
+from os.path import join
 import numpy as np
-import pandas as pd
 from matplotlib import pyplot as plt
 import warnings
+from CHECLabPy.core.io import HDF5Reader
 from CHECLabPy.plotting.setup import Plotter
 from CHECLabPy.plotting.spe import SpectrumFitPlotter
 from CHECLabPy.plotting.camera import CameraImage
 
 
-class SPECamera:
-    def __init__(self, mapping, output_dir):
-        self.camera = CameraImage.from_mapping(mapping)
-        self.camera.add_colorbar()
-        self.output_dir = output_dir
+class SPECamera(Plotter):
+    def __init__(self, mapping):
+        super().__init__()
 
-    def produce(self, df):
-        pixel = df['pixel'].values
-        columns = df.columns
-        d = self.output_dir
-        for c in columns:
-            if c == 'pixel':
-                continue
-            image = df[c].values[pixel]
-            self.camera.image = image
-            self.camera.ax.set_title(c)
-            output_path = os.path.join(d, "camera_{}.pdf".format(c))
-            self.camera.save(output_path)
+        self.fig = plt.figure(figsize=(8, 3))
+        self.ax_values = self.fig.add_subplot(1, 2, 1)
+        self.ax_errors = self.fig.add_subplot(1, 2, 2)
+        self.ci_values = CameraImage.from_mapping(mapping, ax=self.ax_values)
+        self.ci_errors = CameraImage.from_mapping(mapping, ax=self.ax_errors)
+        self.ci_values.add_colorbar("Fit Values", pad=0.1)
+        self.ci_errors.add_colorbar("Fit Errors", pad=0.1)
+
+    def set_image(self, values, errors):
+        self.ci_values.image = values
+        self.ci_errors.image = errors
 
 
 class SPEHist(Plotter):
-    def __init__(self, output_dir):
-        super().__init__()
-        self.output_dir = output_dir
-
-    def produce(self, df):
-        pixel = df['pixel'].values
-        columns = df.columns
-        d = self.output_dir
-        for c in columns:
-            self.fig, self.ax = self.create_figure()
-            if c == 'pixel':
-                continue
-            values = df[c].values[pixel]
-            mean = np.mean(values)
-            std = np.std(values)
-            label = "Mean = {:.3g}, Stddev = {:.3g}".format(mean, std)
-            self.ax.hist(values, bins='scott', label=label)
-            self.add_legend()
-            self.ax.set_title(c)
-            output_path = os.path.join(d, "hist_{}.pdf".format(c))
-            self.save(output_path)
+    def plot(self, values):
+        mean = np.mean(values)
+        std = np.std(values)
+        label = "Mean = {:.3g}, Stddev = {:.3g}".format(mean, std)
+        self.ax.hist(values, bins='auto', label=label)
+        self.add_legend()
 
 
 def main():
-    description = 'Plot the contents of the spe HDF5 file'
-    parser = argparse.ArgumentParser(description=description,
-                                     formatter_class=Formatter)
-    parser.add_argument('-f', '--file', dest='input_path', action='store',
-                        help='path to the input spe HDF5 file')
-    parser.add_argument('-p', '--pixel', dest='plot_pixel', action='store',
-                        default=0, type=int,
-                        help='Pixel to plot the spectrum for')
+    parser = argparse.ArgumentParser(
+        description='Plot the contents of the SPE HDF5 file',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        '-f', '--file', dest='input_path',
+        help='path to the input SPE HDF5 file'
+    )
+    parser.add_argument(
+        '-o', '--output', dest='output_dir',
+        help='directory to save plots'
+    )
+    parser.add_argument(
+        '-p', '--pixel', dest='plot_pixel', type=int,
+        help='Pixel to plot the spectrum for'
+    )
     args = parser.parse_args()
 
     input_path = args.input_path
+    output_dir = args.output_dir
     plot_pixel = args.plot_pixel
 
-    output_dir = os.path.join(os.path.splitext(input_path)[0], "spe")
+    with HDF5Reader(input_path) as reader:
+        df_values = reader.read('values')
+        df_errors = reader.read('errors')
+        df_arrays = reader.read('arrays')
+        mapping = reader.get_mapping()
+        metadata = reader.get_metadata()
 
-    store = pd.HDFStore(input_path)
-    df_pixel_coeff = store['coeff_pixel']
-    df_pixel_initial = store['initial_pixel']
-    df_pixel_array = store['array_pixel']
-    df_camera_coeff = store['coeff_camera']
-    df_camera_initial = store['initial_camera']
-    df_camera_array = store['array_camera']
+    # columns = df_values.columns
+    # for column in columns:
+    #     p_camera = SPECamera(mapping)
+    #     p_camera.set_image(df_values[column], df_errors[column])
+    #     p_camera.fig.suptitle(column)
+    #     p_camera.save(join(output_dir, f"camera_{column}.pdf"))
+    #
+    #     p_hist = SPEHist()
+    #     p_hist.plot(df_values[column])
+    #     p_hist.fig.suptitle(column)
+    #     p_hist.save(join(output_dir, f"hist_{column}.pdf"))
 
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', UserWarning)
-        mapping = store['mapping']
-        mapping.metadata = store.get_storer('mapping').attrs.metadata
-
-    metadata = store.get_storer('metadata').attrs.metadata
-
-    p_camera = SPECamera(mapping, output_dir)
-    p_camera.produce(df_pixel_coeff)
-    plt.close("all")
-
-    p_hist = SPEHist(output_dir)
-    p_hist.produce(df_pixel_coeff)
-    plt.close("all")
-
-    p_spectrum_pixel = SpectrumFitPlotter()
-    p_spectrum_pixel.plot_from_df_pixel(df_pixel_coeff, df_pixel_initial,
-                                        df_pixel_array, metadata, plot_pixel)
-    p_spectrum_pixel.save(os.path.join(output_dir, "spectrum_pixel.pdf"))
-
-    p_spectrum_camera = SpectrumFitPlotter()
-    p_spectrum_camera.plot_from_df_camera(df_camera_coeff, df_camera_initial,
-                                          df_camera_array, metadata)
-    p_spectrum_camera.save(os.path.join(output_dir, "spectrum_camera.pdf"))
+    n_illuminations = metadata['n_illuminations']
+    fitter_name = metadata['fitter']
+    initial = metadata['initial']
+    pixel_values = df_values.loc[plot_pixel].to_dict()
+    pixel_errors = df_errors.loc[plot_pixel].to_dict()
+    pixel_arrays = df_arrays.loc[plot_pixel]
+    p_spectrum_pixel = SpectrumFitPlotter(n_illuminations)
+    p_spectrum_pixel.plot(
+        pixel_arrays['charge_hist_x'],
+        pixel_arrays['charge_hist_y'],
+        pixel_arrays['charge_hist_edges'],
+        pixel_arrays['fit_x'],
+        pixel_arrays['fit_y'],
+        pixel_values,
+        pixel_errors,
+        initial,
+    )
+    p_spectrum_pixel.fig.suptitle(
+        f"{fitter_name}, {n_illuminations} Illuminations, Pixel={plot_pixel}",
+        x=0.75
+    )
+    p_spectrum_pixel.save(join(output_dir, f"spectrum_p{plot_pixel}.pdf"))
 
 
 if __name__ == '__main__':
