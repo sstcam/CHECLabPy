@@ -7,11 +7,11 @@ from CHECLabPy.core.spectrum_fitter import SpectrumFitter, SpectrumParameter, \
 
 
 class MAPMFitter(SpectrumFitter):
-    def __init__(self, n_illuminations, config_path=None):
+    def __init__(self, n_illuminations):
         """
         SpectrumFitter which uses the MAPM fitting formula
         """
-        super().__init__(n_illuminations, config_path)
+        super().__init__(n_illuminations)
 
         self.parameters = SpectrumParameterCollection([
             SpectrumParameter("eped", 0, (-10, 10)),
@@ -19,7 +19,7 @@ class MAPMFitter(SpectrumFitter):
             SpectrumParameter("spe", 25, (0, 40)),
             SpectrumParameter("spe_sigma", 2, (0, 20)),
             SpectrumParameter("lambda_", 0.7, (0, 6), multi=True),
-        ], n_illuminations, config_path)
+        ], n_illuminations)
         self.n_bins = 100
         self.range = (-40, 150)
 

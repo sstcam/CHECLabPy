@@ -25,7 +25,7 @@ class SpectrumParameter:
 
 
 class SpectrumParameterCollection:
-    def __init__(self, spectrum_parameter_list, n_illuminations, config_path=None):
+    def __init__(self, spectrum_parameter_list, n_illuminations):
         """
         Class to handle the bookkeeping of the SpectrumParameters for a
         SpectrumFitter
@@ -34,7 +34,6 @@ class SpectrumParameterCollection:
         ----------
         spectrum_parameter_list : list
         n_illuminations : int
-        config_path : str
         """
         self.spectrum_parameter_list = spectrum_parameter_list
         self.n_illuminations = n_illuminations
@@ -42,7 +41,6 @@ class SpectrumParameterCollection:
         for param in spectrum_parameter_list:
             setattr(self, param.name, param)
 
-        # self.load_config(config_path)
         self._prepare_parameters()
 
     def __len__(self):
@@ -100,7 +98,7 @@ class SpectrumParameterCollection:
                     self.lookup[i][param.name] = lookup_i
                     lookup_i += 1
 
-    def update_parameters(self, spectrum_parameter_list):
+    def update(self, spectrum_parameter_list):
         """
         Update the existing SpectrumParameters attached to this class with new
         values.
@@ -117,82 +115,9 @@ class SpectrumParameterCollection:
 
         self._prepare_parameters()
 
-    # def load_config(self, path):
-    #     """
-    #     Load a YAML configuration file to set initial fitting parameters
-    #
-    #     Parameters
-    #     ----------
-    #     path : str
-    #     """
-    #     print("Loading SpectrumFitter configuration from: {}".format(path))
-    #     with open(path, 'r') as file:
-    #         d = yaml.safe_load(file)
-    #         if d is None:
-    #             return
-    #         self.n_bins = d.pop('nbins', self.n_bins)
-    #         self.range = d.pop('range', self.range)
-    #         for c in self.parameter_names:
-    #             if 'initial' in d:
-    #                 ini = c
-    #                 self.initial[ini] = d['initial'].pop(c, self.initial[ini])
-    #                 if self.initial[ini] is not None:
-    #                     self.initial[ini] = float(self.initial[ini])
-    #             if 'limits' in d:
-    #                 lim = "limit_" + c
-    #                 list_ = d['limits'].pop(c, self.limits[lim])
-    #                 if isinstance(list_, list):
-    #                     self.limits[lim] = tuple([float(l) for l in list_])
-    #                 else:
-    #                     self.limits[lim] = list_
-    #             if 'fix' in d:
-    #                 fix = "fix_" + c
-    #                 self.fix[fix] = d['fix'].pop(c, self.fix[fix])
-    #         if 'initial' in d and not d['initial']:
-    #             d.pop('initial')
-    #         if 'limits' in d and not d['limits']:
-    #             d.pop('limits')
-    #         if 'fix' in d and not d['fix']:
-    #             d.pop('fix')
-    #         if d:
-    #             print("WARNING: Unused SpectrumFitter config parameters:")
-    #             print(d)
-    #
-    # def save_config(self, path):
-    #     """
-    #     Save the configuration of the fit. If the fit has already been
-    #     performed, the fit coefficients will be included as the initial
-    #     coefficients
-    #
-    #     Parameters
-    #     ----------
-    #     path : str
-    #         Path to save the configuration file to
-    #     """
-    #     print("Writing SpectrumFitter configuration to: {}".format(path))
-    #     initial = dict()
-    #     limits = dict()
-    #     fix = dict()
-    #     coeff_dict = self.coeff if self.coeff else self.initial
-    #     for c, val in coeff_dict.items():
-    #         initial[c] = val
-    #     for c, val in self.limits.items():
-    #         limits[c.replace("limit_", "")] = val
-    #     for c, val in self.fix.items():
-    #         fix[c.replace("fix_", "")] = val
-    #     data = dict(
-    #         n_bins=self.n_bins,
-    #         range=self.range,
-    #         initial=initial,
-    #         limits=limits,
-    #         fix=fix
-    #     )
-    #     with open(path, 'w') as outfile:
-    #         yaml.safe_dump(data, outfile, default_flow_style=False)
-
 
 class SpectrumFitter:
-    def __init__(self, n_illuminations, config_path=None):
+    def __init__(self, n_illuminations):
         """
         Base class for fitters of Single-Photoelectron spectra. Built to
         flexibly handle any number of illuminations simultaneously.
@@ -201,8 +126,6 @@ class SpectrumFitter:
         ----------
         n_illuminations : int
             Number of illuminations to fit simultaneously
-        config_path : str
-            Path to JAML config file
         """
         self.n_illuminations = n_illuminations
 
@@ -217,8 +140,63 @@ class SpectrumFitter:
         self.fit_result_values = None
         self.fit_result_errors = None
 
-        # if config_path:
-        #     self.load_config(config_path)
+    def load_config(self, path):
+        """
+        Load a YAML configuration file to set initial fitting parameters
+
+        Parameters
+        ----------
+        path : str
+        """
+        print(f"Loading SpectrumFitter configuration from: {path}")
+        with open(path, 'r') as file:
+            d = yaml.safe_load(file)
+            if d is None:
+                return
+            self.n_bins = d.pop('n_bins', self.n_bins)
+            self.range = tuple(d.pop('range', self.range))
+            for param in self.parameters:
+                if 'initial' in d:
+                    param.initial = d['initial'].pop(param.name, param.initial)
+                if 'limits' in d:
+                    param.limits = tuple(d['limits'].pop(param.name, param.limits))
+                if 'fixed' in d:
+                    param.fixed = d['fixed'].pop(param.name, param.fixed)
+            if 'initial' in d and not d['initial']:
+                d.pop('initial')
+            if 'limits' in d and not d['limits']:
+                d.pop('limits')
+            if 'fixed' in d and not d['fixed']:
+                d.pop('fixed')
+            if d:
+                print(f"WARNING: Unused SpectrumFitter config parameters:\n{d}")
+
+    def save_config(self, path):
+        """
+        Save the configuration of the fit
+
+        Parameters
+        ----------
+        path : str
+            Path to save the configuration file to
+        """
+        print(f"Writing SpectrumFitter configuration to: {path}")
+        initial = dict()
+        limits = dict()
+        fixed = dict()
+        for param in self.parameters:
+            initial[param.name] = param.initial
+            limits[param.name] = list(param.limits)
+            fixed[param.name] = param.fixed
+        data = dict(
+            n_bins=self.n_bins,
+            range=self.range,
+            initial=initial,
+            limits=limits,
+            fixed=fixed
+        )
+        with open(path, 'w') as outfile:
+            yaml.safe_dump(data, outfile, default_flow_style=None)
 
     @property
     def fit_result_curve(self):
@@ -257,6 +235,23 @@ class SpectrumFitter:
         charge_hist_edges : ndarray
         """
         return self.charge_hist_x, self.charge_hist_y, self.charge_hist_edges
+
+    def update_initial(self, illumination=0):
+        """
+        Replace the initial parameter values with the resulting fit values
+
+        Parameters
+        ----------
+        illumination : int
+            Index to use for multi parameters
+        """
+        if self.fit_result_values is None:
+            raise ValueError("Fit has not yet been performed")
+        for param in self.parameters:
+            if param.multi:
+                param.initial = self.fit_result_values[f"{param.name}{illumination}"]
+            else:
+                param.initial = self.fit_result_values[param.name]
 
     def apply(self, *charges):
         """

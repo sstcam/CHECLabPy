@@ -61,7 +61,7 @@ def test_sipm_gentile_fitter():
         SpectrumParameter("opct", 0.4, (0.01, 0.8)),
         SpectrumParameter("lambda_", 0.7, (0.001, 3), multi=True),
     ]
-    fitter.parameters.update_parameters(spectrum_parameter_list)
+    fitter.parameters.update(spectrum_parameter_list)
     fitter.range = (-10, 50)
     fitter.n_bins = 1000
 

@@ -120,8 +120,9 @@ def main():
     fitter = SpectrumFitterFactory.produce(
         product_name=fitter_name,
         n_illuminations=n_illuminations,
-        config_path=config_path
     )
+    if config_path is not None:
+        fitter.load_config(config_path)
     initial = {param.name: param.initial for param in fitter.parameters}
     lambda_initial = initial.pop("lambda_")
     for i in range(n_illuminations):

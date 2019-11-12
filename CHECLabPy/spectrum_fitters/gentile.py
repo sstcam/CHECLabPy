@@ -7,12 +7,12 @@ from CHECLabPy.core.spectrum_fitter import SpectrumFitter, SpectrumParameter, \
 
 
 class SiPMGentileFitter(SpectrumFitter):
-    def __init__(self, n_illuminations, config_path=None):
+    def __init__(self, n_illuminations):
         """
         SpectrumFitter which uses the SiPM fitting formula from Gentile 2010
         http://adsabs.harvard.edu/abs/2010arXiv1006.3263G
         """
-        super().__init__(n_illuminations, config_path)
+        super().__init__(n_illuminations)
 
         self.parameters = SpectrumParameterCollection([
             SpectrumParameter("eped", 0, (-10, 10)),
@@ -21,7 +21,7 @@ class SiPMGentileFitter(SpectrumFitter):
             SpectrumParameter("spe_sigma", 2, (0, 20)),
             SpectrumParameter("opct", 0.4, (0, 1)),
             SpectrumParameter("lambda_", 0.7, (0, 6), multi=True),
-        ], n_illuminations, config_path)
+        ], n_illuminations)
         self.n_bins = 100
         self.range = (-30, 200)
 

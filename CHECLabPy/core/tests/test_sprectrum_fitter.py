@@ -2,15 +2,16 @@ from CHECLabPy.core.spectrum_fitter import SpectrumFitter, SpectrumParameter, \
     SpectrumParameterCollection
 from CHECLabPy.stats.pdf import normal_pdf, poisson_logpmf
 import numpy as np
+import pytest
 
 
 class TestSpectrumFitter(SpectrumFitter):
-    def __init__(self, n_illuminations, config_path=None):
-        super().__init__(n_illuminations, config_path)
+    def __init__(self, n_illuminations):
+        super().__init__(n_illuminations)
         self.parameters = SpectrumParameterCollection([
             SpectrumParameter("mean", 0, (-10, 10), multi=True),
             SpectrumParameter("std", 0.5, (0.1, 1)),
-        ], n_illuminations, config_path)
+        ], n_illuminations)
         self.n_bins = 2000
         self.range = (-10, 10)
 
@@ -93,7 +94,7 @@ def test_spectrum_parameter_collection():
     test1_param = SpectrumParameter("test1_", 5, (4, 6), fixed=False)
     test2_param = SpectrumParameter("test2_", 7, (6, 8), multi=True)
     spectrum_parameter_list = [test1_param, test2_param]
-    parameters.update_parameters(spectrum_parameter_list)
+    parameters.update(spectrum_parameter_list)
     assert parameters.test1_.name == "test1_"
     assert parameters.test1_.initial == 5
     assert parameters.test1_.limits == (4, 6)
@@ -144,3 +145,63 @@ def test_spectrum_fitter():
     assert len(fit_y) == len(charges)
     np.testing.assert_allclose(fit_x[fit_y[0].argmax()], mean0, rtol=1e-2)
     np.testing.assert_allclose(fit_x[fit_y[1].argmax()], mean1, rtol=1e-2)
+
+
+def test_spectrum_fitter_update_initial():
+    mean0 = 3
+    mean1 = 1
+    std = 0.6
+    random = np.random.RandomState(1)
+    charges = [
+        random.normal(mean0, std, 10000),
+        random.normal(mean1, std, 10000),
+    ]
+    n_illuminations = len(charges)
+    fitter = TestSpectrumFitter(n_illuminations)
+
+    with pytest.raises(ValueError):
+        fitter.update_initial()
+
+    fitter.apply(*charges)
+    fitter.update_initial()
+    np.testing.assert_allclose(fitter.parameters.mean.initial, mean0, rtol=1e-2)
+    np.testing.assert_allclose(fitter.parameters.std.initial, std, rtol=1e-2)
+    fitter.update_initial(illumination=1)
+    np.testing.assert_allclose(fitter.parameters.mean.initial, mean1, rtol=1e-2)
+    np.testing.assert_allclose(fitter.parameters.std.initial, std, rtol=1e-2)
+
+
+def test_spectrum_fitter_config(tmp_path):
+    config_path = tmp_path / "config.yml"
+
+    fitter = TestSpectrumFitter(2)
+
+    fitter.n_bins = 100000000
+    fitter.range = (-2, 3)
+    for param in fitter.parameters:
+        param.initial = -1
+        param.limits = (-2, 3)
+        param.fixed = True
+
+    fitter.save_config(config_path)
+
+    fitter_new = TestSpectrumFitter(2)
+
+    # Check that values do not match config initially
+    assert fitter_new.n_bins != 100000000
+    assert fitter_new.range != (-2, 3)
+    for param in fitter_new.parameters:
+        assert param.initial != -1
+        assert param.limits != (-2, 3)
+        assert param.fixed is not True
+
+    fitter_new.load_config(config_path)
+
+    assert fitter_new.n_bins == 100000000
+    assert fitter_new.range == (-2, 3)
+    for param in fitter_new.parameters:
+        assert param.initial == -1
+        assert param.limits == (-2, 3)
+        assert param.fixed is True
+
+    raise ValueError
