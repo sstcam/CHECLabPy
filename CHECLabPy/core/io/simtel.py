@@ -147,6 +147,7 @@ class SimtelReader(WaveformReader):
         if self.mcheader is None:
             mch = event.mcheader
             self.mcheader = dict(
+                obs_id=self.run_id,
                 corsika_version=mch.corsika_version,
                 simtel_version=mch.simtel_version,
                 energy_range_min=mch.energy_range_min.value,
