@@ -7,7 +7,7 @@ class SpectrumFitPlotter(Plotter):
         super().__init__(**kwargs)
         plt.close(self.fig)
         self.n_illuminations = n_illuminations
-        self.fig = plt.figure(figsize=(13, 6))
+        self.fig = plt.figure(figsize=(8, 3))
         self.ax = plt.subplot2grid((3, 5), (0, 0), rowspan=3, colspan=4)
         self.ax_t = plt.subplot2grid((3, 5), (0, 4), rowspan=3)
 
@@ -34,3 +34,5 @@ class SpectrumFitPlotter(Plotter):
 
     def finish(self):
         self.ax.legend(loc=1, frameon=True, fancybox=True, framealpha=0.7)
+        self.ax.set_xlabel("Charge (mV ns)")
+        self.ax.set_ylabel("N")
