@@ -83,7 +83,7 @@ class SimtelReader(WaveformReader):
 
     def _build_waveform(self, event):
         self._fill_event_containers(event)
-        samples = event.r1.tel[self.tel].waveform[0][self.pixel_order]
+        samples = event.r1.tel[self.tel].waveform[self.pixel_order]
         mc_true = event.mc.tel[self.tel].photo_electron_image[self.pixel_order]
         waveform = SimtelWaveform(
             samples,
