@@ -5,7 +5,6 @@ import argparse
 from os.path import join
 import numpy as np
 from matplotlib import pyplot as plt
-import warnings
 from CHECLabPy.core.io import HDF5Reader
 from CHECLabPy.plotting.setup import Plotter
 from CHECLabPy.plotting.spe import SpectrumFitPlotter
@@ -68,17 +67,17 @@ def main():
         mapping = reader.get_mapping()
         metadata = reader.get_metadata()
 
-    # columns = df_values.columns
-    # for column in columns:
-    #     p_camera = SPECamera(mapping)
-    #     p_camera.set_image(df_values[column], df_errors[column])
-    #     p_camera.fig.suptitle(column)
-    #     p_camera.save(join(output_dir, f"camera_{column}.pdf"))
-    #
-    #     p_hist = SPEHist()
-    #     p_hist.plot(df_values[column])
-    #     p_hist.fig.suptitle(column)
-    #     p_hist.save(join(output_dir, f"hist_{column}.pdf"))
+    columns = df_values.columns
+    for column in columns:
+        p_camera = SPECamera(mapping)
+        p_camera.set_image(df_values[column], df_errors[column])
+        p_camera.fig.suptitle(column)
+        p_camera.save(join(output_dir, f"camera_{column}.pdf"))
+
+        p_hist = SPEHist()
+        p_hist.plot(df_values[column])
+        p_hist.fig.suptitle(column)
+        p_hist.save(join(output_dir, f"hist_{column}.pdf"))
 
     n_illuminations = metadata['n_illuminations']
     fitter_name = metadata['fitter']

@@ -129,9 +129,9 @@ def test_spectrum_fitter():
     np.testing.assert_allclose(parameter_values['std'], std, rtol=1e-2)
 
     parameter_errors = fitter.fit_result_errors
-    assert parameter_errors['mean0'] < 0.1
-    assert parameter_errors['mean1'] < 0.1
-    assert parameter_errors['std'] < 0.1
+    assert parameter_errors['mean0'] < 0.01
+    assert parameter_errors['mean1'] < 0.01
+    assert parameter_errors['std'] < 0.01
 
     hist_x, hist_y, hist_edges = fitter.charge_histogram
     assert hist_x.size == fitter.n_bins

@@ -240,6 +240,9 @@ class SpectrumFitter:
             self.parameters.lookup_typed,
             *self.fit_result_values.values()
         )
+        for i in range(self.n_illuminations):
+            hist_area = np.trapz(self.charge_hist_y[i], self.charge_hist_x)
+            fit_y[i] *= hist_area / np.trapz(fit_y[i], fit_x)
         return fit_x, fit_y
 
     @property
@@ -272,7 +275,7 @@ class SpectrumFitter:
         self.charge_hist_y_typed = typed.List()
         for i in range(self.n_illuminations):
             hist, edges = np.histogram(
-                charges[i], bins=self.n_bins, range=self.range, density=True
+                charges[i], bins=self.n_bins, range=self.range
             )
             between = (edges[1:] + edges[:-1]) / 2
 
@@ -281,30 +284,34 @@ class SpectrumFitter:
             self.charge_hist_y_typed.append(hist.astype(np.float32))
             self.charge_hist_edges = edges.astype(np.float32)
 
-        minimize_function = partial(
-            self._get_likelihood,
-            self.n_illuminations,
-            self.charge_hist_x,
-            self.charge_hist_y_typed,
-            self.parameters.lookup_typed
-        )
-
         m0 = iminuit.Minuit(
-            minimize_function, **self.parameters.minuit_kwargs,
-            print_level=0, pedantic=False, throw_nan=True,
+            self._minimize_function, **self.parameters.minuit_kwargs,
+            print_level=0, pedantic=False, throw_nan=True, errordef=1,
             forced_parameters=self.parameters.parameter_names
         )
         m0.migrad()
         self.fit_result_values = m0.values
 
-        # with warnings.catch_warnings():
-        #     warnings.simplefilter('ignore', HesseFailedWarning)
-        m0.hesse()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', HesseFailedWarning)
+            m0.hesse()
         self.fit_result_errors = m0.errors
+
+    def _minimize_function(self, *parameter_values):
+        try:
+            return self._get_likelihood(
+                self.n_illuminations,
+                self.charge_hist_x,
+                self.charge_hist_y_typed,
+                self.parameters.lookup_typed,
+                *parameter_values,
+            )
+        except ZeroDivisionError:
+            return np.inf
 
     @staticmethod
     @abstractmethod
-    def _get_spectra(n_illuminations, data_x, data_y, lookup, *parameter_values):
+    def _get_spectra(n_illuminations, data_x, lookup, *parameter_values):
         """
         Abstract method to be defined by the SpectrumFitter subclass
 

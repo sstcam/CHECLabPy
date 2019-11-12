@@ -15,10 +15,10 @@ class MAPMFitter(SpectrumFitter):
 
         self.parameters = SpectrumParameterCollection([
             SpectrumParameter("eped", 0, (-10, 10)),
-            SpectrumParameter("eped_sigma", 9, (2, 20)),
-            SpectrumParameter("spe", 25, (5, 30)),
-            SpectrumParameter("spe_sigma", 2, (1, 20)),
-            SpectrumParameter("lambda_", 0.7, (0.001, 3), multi=True),
+            SpectrumParameter("eped_sigma", 9, (0, 20)),
+            SpectrumParameter("spe", 25, (0, 40)),
+            SpectrumParameter("spe_sigma", 2, (0, 20)),
+            SpectrumParameter("lambda_", 0.7, (0, 6), multi=True),
         ], n_illuminations, config_path)
         self.n_bins = 100
         self.range = (-40, 150)
@@ -38,6 +38,7 @@ class MAPMFitter(SpectrumFitter):
         likelihood = 0
         for i in range(n_illuminations):
             spectrum = calculate_spectrum(data_x, lookup[i], *parameter_values)
+            spectrum *= np.trapz(data_y[i], data_x) / np.trapz(spectrum, data_x)
             likelihood += np.nansum(-2 * poisson_logpmf(data_y[i], spectrum))
         return likelihood
 

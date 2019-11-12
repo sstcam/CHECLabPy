@@ -15,16 +15,15 @@ class SiPMGentileFitter(SpectrumFitter):
         super().__init__(n_illuminations, config_path)
 
         self.parameters = SpectrumParameterCollection([
-            SpectrumParameter("norm", 1, (0.5, 1.5)),
             SpectrumParameter("eped", 0, (-10, 10)),
-            SpectrumParameter("eped_sigma", 9, (2, 20)),
-            SpectrumParameter("spe", 25, (15, 40)),
-            SpectrumParameter("spe_sigma", 2, (1, 20)),
-            SpectrumParameter("opct", 0.4, (0.01, 0.8)),
-            SpectrumParameter("lambda_", 0.7, (0.001, 3), multi=True),
+            SpectrumParameter("eped_sigma", 9, (0, 20)),
+            SpectrumParameter("spe", 25, (0, 40)),
+            SpectrumParameter("spe_sigma", 2, (0, 20)),
+            SpectrumParameter("opct", 0.4, (0, 1)),
+            SpectrumParameter("lambda_", 0.7, (0, 6), multi=True),
         ], n_illuminations, config_path)
         self.n_bins = 100
-        self.range = (-40, 150)
+        self.range = (-30, 200)
 
     @staticmethod
     @njit(fastmath=True)
@@ -41,6 +40,7 @@ class SiPMGentileFitter(SpectrumFitter):
         likelihood = 0
         for i in range(n_illuminations):
             spectrum = calculate_spectrum(data_x, lookup[i], *parameter_values)
+            spectrum *= np.trapz(data_y[i], data_x) / np.trapz(spectrum, data_x)
             likelihood += np.nansum(-2 * poisson_logpmf(data_y[i], spectrum))
         return likelihood
 
@@ -49,7 +49,6 @@ class SiPMGentileFitter(SpectrumFitter):
 def calculate_spectrum(data_x, lookup, *parameter_values):
     return sipm_gentile_spe(
         x=data_x,
-        norm=parameter_values[lookup["norm"]],
         eped=parameter_values[lookup["eped"]],
         eped_sigma=parameter_values[lookup["eped_sigma"]],
         spe=parameter_values[lookup["spe"]],
@@ -60,7 +59,7 @@ def calculate_spectrum(data_x, lookup, *parameter_values):
 
 
 @njit(fastmath=True)
-def sipm_gentile_spe(x, norm, eped, eped_sigma, spe, spe_sigma, opct, lambda_):
+def sipm_gentile_spe(x, eped, eped_sigma, spe, spe_sigma, opct, lambda_):
     """
     Fit for the SPE spectrum of a SiPM
 
@@ -84,14 +83,13 @@ def sipm_gentile_spe(x, norm, eped, eped_sigma, spe, spe_sigma, opct, lambda_):
 
     Returns
     -------
-    signal : ndarray
-        The y values of the total signal.
+    spectrum : ndarray
+        The y values of the total spectrum.
     """
     # Obtain pedestal peak
     p_ped = exp(-lambda_)
-    ped_signal = norm * p_ped * normal_pdf(x, eped, eped_sigma)
+    spectrum = p_ped * normal_pdf(x, eped, eped_sigma)
 
-    pe_signal = np.zeros(x.size)
     pk_max = 0
 
     # Loop over the possible total number of cells fired
@@ -119,6 +117,6 @@ def sipm_gentile_spe(x, norm, eped, eped_sigma, spe, spe_sigma, opct, lambda_):
         pe_sigma = sqrt(k * spe_sigma ** 2 + eped_sigma ** 2)
 
         # Evaluate probability at each value of x
-        pe_signal += norm * pk * normal_pdf(x, eped + k * spe, pe_sigma)
+        spectrum += pk * normal_pdf(x, eped + k * spe, pe_sigma)
 
-    return ped_signal + pe_signal
+    return spectrum

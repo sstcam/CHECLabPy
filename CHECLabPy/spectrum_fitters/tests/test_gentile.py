@@ -67,6 +67,7 @@ def test_sipm_gentile_fitter():
 
     fitter.apply(*charges)
     parameter_values = fitter.fit_result_values
+    parameter_errors = fitter.fit_result_errors
 
     rtol = 1e-2
     assert_allclose(parameter_values["eped"], params["eped"], rtol=rtol)
@@ -77,3 +78,12 @@ def test_sipm_gentile_fitter():
     assert_allclose(parameter_values["lambda_0"], lambda_values[0], rtol=rtol)
     assert_allclose(parameter_values["lambda_1"], lambda_values[1], rtol=rtol)
     assert_allclose(parameter_values["lambda_2"], lambda_values[2], rtol=rtol)
+
+    assert parameter_errors["eped"] < 0.01
+    assert parameter_errors["eped_sigma"] < 0.01
+    assert parameter_errors["spe"] < 0.01
+    assert parameter_errors["spe_sigma"] < 0.01
+    assert parameter_errors["opct"] < 0.01
+    assert parameter_errors["lambda_0"] < 0.01
+    assert parameter_errors["lambda_1"] < 0.01
+    assert parameter_errors["lambda_2"] < 0.01
