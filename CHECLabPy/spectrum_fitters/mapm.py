@@ -77,14 +77,13 @@ def mapm_spe(x, eped, eped_sigma, spe, spe_sigma, lambda_):
 
     Returns
     -------
-    signal : ndarray
-        The y values of the total signal.
+    spectrum : ndarray
+        The y values of the total spectrum.
     """
     # Obtain pedestal peak
     p_ped = exp(-lambda_)
-    ped_signal = p_ped * normal_pdf(x, eped, eped_sigma)
+    spectrum = p_ped * normal_pdf(x, eped, eped_sigma)
 
-    pe_signal = np.zeros(x.size)
     pk_max = 0
 
     # Loop over the possible total number of cells fired
@@ -101,6 +100,6 @@ def mapm_spe(x, eped, eped_sigma, spe, spe_sigma, lambda_):
         pe_sigma = sqrt(k * spe_sigma ** 2 + eped_sigma ** 2)
 
         # Evaluate probability at each value of x
-        pe_signal += p * normal_pdf(x, eped + k * spe, pe_sigma)
+        spectrum += p * normal_pdf(x, eped + k * spe, pe_sigma)
 
-    return ped_signal + pe_signal
+    return spectrum
