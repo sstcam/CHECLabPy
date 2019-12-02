@@ -1,90 +1,38 @@
-import numpy as np
-from matplotlib import pyplot as plt
 from CHECLabPy.plotting.setup import Plotter
+from matplotlib import pyplot as plt
 
 
 class SpectrumFitPlotter(Plotter):
-    def __init__(self, talk=False):
-        super().__init__(talk=talk)
-        self.fig = plt.figure(figsize=(13, 6))
-        self.ax = plt.subplot2grid((3, 2), (0, 0), rowspan=3)
-        self.ax_t = plt.subplot2grid((3, 2), (0, 1), rowspan=3)
+    def __init__(self, n_illuminations, **kwargs):
+        super().__init__(**kwargs)
+        plt.close(self.fig)
+        self.n_illuminations = n_illuminations
+        self.fig = plt.figure(figsize=(8, 3))
+        self.ax = plt.subplot2grid((3, 5), (0, 0), rowspan=3, colspan=4)
+        self.ax_t = plt.subplot2grid((3, 5), (0, 4), rowspan=3)
 
-    def plot(self, hist, edges, between, fit_x, fit, initial, coeff, errors,
-             coeff_initial, fitter_name, n_illuminations):
+    def plot(self, hist_x, hist_y, hist_edges, fit_x, fit_y, values, errors, initial):
+        for i in range(self.n_illuminations):
+            label = f"λ_{i} = {values[f'lambda_{i}']:.3f} ± {errors[f'lambda_{i}']:.3f} p.e."
+            color = next(self.ax._get_lines.prop_cycler)['color']
+            self.ax.hist(
+                hist_x,  weights=hist_y[i], bins=hist_edges,
+                histtype='step', color=color
+            )
+            self.ax.plot(fit_x, fit_y[i], color=color, label=label)
 
-        self.ax.hist(between, bins=edges, weights=hist, histtype='step',
-                     label="Hist")
-        self.ax.plot(fit_x, fit, label="Fit")
-        self.ax.plot(fit_x, initial, label="Initial")
-        self.ax.legend(loc=1, frameon=True, fancybox=True, framealpha=0.7)
         self.ax_t.axis('off')
         columns = ['Initial', 'Fit']
-        rows = list(coeff.keys())
-        cells = [['%.3g' % coeff_initial[i], '%.3f' % coeff[i]] for i in rows]
-        if errors is not None:
-            for r, i in enumerate(rows):
-                try:
-                    cells[r][1] = '%.3f ± %.3f' % (coeff[i], errors[i])
-                except:
-                    pass
-            # cells = [['%.3g' % coeff_initial[i], '%.3g ± %.3g' % (coeff[i], errors[i])] for i in rows]
-        table = self.ax_t.table(cellText=cells, rowLabels=rows,
-                                colLabels=columns, loc='center')
-        table.set_fontsize(6)
-        title = "{}, {} Illuminations".format(fitter_name, n_illuminations)
-        self.fig.suptitle(title, x=0.75)
-
-    def plot_from_fitter(self, fitter, charges):
-        fitter.apply(*charges)
-        fitter_name = fitter.__class__.__name__
-        n_illuminations = fitter.n_illuminations
-        x = np.linspace(fitter.range[0], fitter.range[1], 1000)
-        hist, edges, between = fitter.get_histogram_summed(
-            charges, fitter.nbins, fitter.range
+        rows = list(values.keys())
+        cells = [['%.3g' % initial[i], '%.3f' % values[i]] for i in rows]
+        for r, i in enumerate(rows):
+            cells[r][1] = '%.3f ± %.3f' % (values[i], errors[i])
+        table = self.ax_t.table(
+            cellText=cells, rowLabels=rows, colLabels=columns, loc='center'
         )
-        coeff = dict(fitter.coeff)
-        errors = dict(fitter.errors)
-        coeffl = list(fitter.coeff_names)
-        coeff_initial = dict(fitter.p0)
-        fit = fitter.get_fit_summed(x, **coeff)
-        initial = fitter.get_fit_summed(x, **coeff_initial)
+        table.set_fontsize(6)
 
-        coeff['chi2'] = fitter.chi2
-        coeff['rchi2'] = fitter.reduced_chi2
-        coeff['p_value'] = fitter.p_value
-        fitter.coeff = coeff_initial
-        coeff_initial['chi2'] = fitter.chi2
-        coeff_initial['rchi2'] = fitter.reduced_chi2
-        coeff_initial['p_value'] = fitter.p_value
-
-        self.plot(hist, edges, between, x, fit, initial, coeff, errors,
-                  coeff_initial, fitter_name, n_illuminations)
-
-    def plot_from_df_pixel(self, df_coeff, df_inital, df_array, meta, pixel):
-        fitter_name = meta['fitter']
-        n_illuminations = meta['n_illuminations']
-        hist = df_array.loc[pixel, 'hist']
-        edges = df_array.loc[pixel, 'edges']
-        between = df_array.loc[pixel, 'between']
-        fit_x = df_array.loc[pixel, 'fit_x']
-        fit = df_array.loc[pixel, 'fit']
-        initial = df_array.loc[pixel, 'initial']
-        coeff = df_coeff.loc[pixel].to_dict()
-        coeff_initial = df_inital.loc[pixel].to_dict()
-        self.plot(hist, edges, between, fit_x, fit, initial, coeff, None, #TODO: add support for errors
-                  coeff_initial, fitter_name, n_illuminations)
-
-    def plot_from_df_camera(self, df_coeff, df_inital, df_array, meta):
-        fitter_name = meta['fitter']
-        n_illuminations = meta['n_illuminations']
-        hist = df_array.loc[0, 'hist']
-        edges = df_array.loc[0, 'edges']
-        between = df_array.loc[0, 'between']
-        fit_x = df_array.loc[0, 'fit_x']
-        fit = df_array.loc[0, 'fit']
-        initial = df_array.loc[0, 'initial']
-        coeff = df_coeff.loc[0].to_dict()
-        coeff_initial = df_inital.loc[0].to_dict()
-        self.plot(hist, edges, between, fit_x, fit, initial, coeff, None,
-                  coeff_initial, fitter_name, n_illuminations)
+    def finish(self):
+        self.ax.legend(loc=1, frameon=True, fancybox=True, framealpha=0.7)
+        self.ax.set_xlabel("Charge (mV ns)")
+        self.ax.set_ylabel("N")
