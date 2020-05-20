@@ -2,7 +2,6 @@ import numpy as np
 from scipy.stats import binned_statistic as bs
 from matplotlib.ticker import FuncFormatter
 from CHECLabPy.plotting.setup import Plotter
-from IPython import embed
 
 
 def sum_errors(array):

@@ -169,6 +169,7 @@ def get_ctapipe_camera_geometry(mapping):
         pix_area=None,
         pix_type='rectangular',
         frame=EngineeringCameraFrame(n_mirrors=2),
+        sampling_rate=u.Quantity(1, u.GHz),
     )
     return camera
 
