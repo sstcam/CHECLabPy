@@ -3,7 +3,7 @@ import pandas as pd
 
 
 class ChargeResolution:
-    def __init__(self, mc_true=True):
+    def __init__(self, mc_true):
         """
         Calculates the charge resolution with an efficient, low-memory,
         interative approach, allowing the contribution of data/events
